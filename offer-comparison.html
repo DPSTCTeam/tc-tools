@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Offer Comparison Sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --blue: #1c7cad;
+    --blue-light: #e8f4fb;
+    --purple: #7c5cad;
+    --purple-light: #f0ebfb;
+    --green-c: #2e8a59;
+    --green-light: #e8f5ee;
+    --text: #1a1a1a;
+    --text-secondary: #5a6472;
+    --text-muted: #8a9099;
+    --border: #e2e6ea;
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --radius: 10px;
+    --font: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1.25rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); display: inline-block; margin-right: 8px; }
+  .brand-name { font-size: 15px; font-weight: 600; }
+  .brand-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .back-link { font-size: 13px; color: var(--blue); text-decoration: none; }
+  .back-link:hover { text-decoration: underline; }
+
+  .page-hero {
+    background: linear-gradient(135deg, #1c7cad 0%, #155f87 100%);
+    color: white;
+    padding: 2.5rem 2rem 2rem;
+  }
+  .hero-title { font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+  .hero-sub { font-size: 14px; opacity: 0.8; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+
+  .prop-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .prop-row input { flex: 1; min-width: 180px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: var(--font); background: var(--surface); color: var(--text); outline: none; }
+  .prop-row input:focus { border-color: var(--blue); }
+
+  .offers-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 1.5rem; }
+  .offer-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; transition: box-shadow 0.15s; }
+  .offer-card.winner { border: 2px solid var(--blue); }
+  .offer-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .offer-label { font-size: 13px; font-weight: 600; }
+  .winner-badge { font-size: 10px; padding: 3px 9px; border-radius: 10px; background: var(--blue-light); color: var(--blue); font-weight: 600; }
+
+  .field-group { margin-bottom: 10px; }
+  .field-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; font-weight: 500; }
+  .field-group input, .field-group select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; }
+  .field-group input:focus, .field-group select:focus { border-color: var(--blue); background: white; }
+  .section-divider { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin: 14px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--border); }
+
+  .score-box { margin-top: 14px; background: var(--bg); border-radius: 8px; padding: 10px 14px; text-align: center; }
+  .score-num { font-size: 28px; font-weight: 600; }
+  .score-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .btn-secondary { padding: 8px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--font); cursor: pointer; color: var(--text-secondary); }
+  .btn-secondary:hover { border-color: var(--blue); color: var(--blue); }
+  .btn-primary { padding: 8px 16px; background: var(--blue); border: none; border-radius: 8px; font-size: 13px; font-family: var(--font); cursor: pointer; color: white; font-weight: 500; }
+  .btn-primary:hover { background: #155f87; }
+
+  .summary-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .summary-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; padding: 12px 16px; background: var(--bg); border-bottom: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-weight: 600; font-size: 11px; color: var(--text-muted); padding: 10px 14px; background: var(--bg); border-bottom: 1px solid var(--border); text-transform: uppercase; letter-spacing: 0.04em; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafbfc; }
+  .best-val { color: var(--blue); font-weight: 600; }
+  .vs-positive { color: #2e7d32; font-size: 11px; }
+  .vs-negative { color: #c0392b; font-size: 11px; }
+
+  @media (max-width: 768px) {
+    header, .container { padding-left: 1rem; padding-right: 1rem; }
+    .page-hero { padding: 1.5rem 1rem; }
+    .offers-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <span class="brand-dot"></span>
+    <span class="brand-name">TC Agent Tools</span>
+    <div class="brand-sub" style="margin-left:18px;">Offer Comparison Sheet</div>
+  </div>
+  <a href="index.html" class="back-link">&#8592; Back to tools</a>
+</header>
+
+<div class="page-hero">
+  <div class="hero-title">Offer Comparison Sheet</div>
+  <div class="hero-sub">Compare up to 3 offers side by side. Scores update automatically.</div>
+</div>
+
+<div class="container">
+  <div class="prop-row">
+    <input type="text" id="prop-addr" placeholder="Property address..." oninput="buildSummary()" />
+    <input type="text" id="list-price" placeholder="List price (e.g. 550000)" oninput="recalc()" />
+  </div>
+
+  <div class="offers-grid" id="offers-grid"></div>
+
+  <div class="controls">
+    <button class="btn-primary" onclick="recalc()">Recalculate</button>
+    <button class="btn-secondary" onclick="clearAll()">Clear all</button>
+  </div>
+
+  <div id="summary"></div>
+</div>
+
+<script>
+const OFFER_DEFS = [
+  { label:"Offer 1", color:"#1c7cad", lightbg:"#e8f4fb" },
+  { label:"Offer 2", color:"#7c5cad", lightbg:"#f0ebfb" },
+  { label:"Offer 3", color:"#2e8a59", lightbg:"#e8f5ee" },
+];
+
+const FIELDS = [
+  { section:"Buyer info" },
+  { id:"buyer",     label:"Buyer name",           type:"text",   score:false },
+  { id:"agent",     label:"Buyer's agent",         type:"text",   score:false },
+  { section:"Offer terms" },
+  { id:"price",     label:"Offer price ($)",       type:"number", score:"highest" },
+  { id:"down",      label:"Down payment (%)",      type:"number", score:"highest" },
+  { id:"earnest",   label:"Earnest money ($)",     type:"number", score:"highest" },
+  { id:"credits",   label:"Credits requested ($)", type:"number", score:"lowest" },
+  { section:"Financing" },
+  { id:"finance",   label:"Financing type",        type:"select", score:false, opts:["—","Conventional","FHA","VA","Cash","Other"] },
+  { id:"preapprove",label:"Pre-approval status",   type:"select", score:"select", opts:["—","Full pre-approval","Pre-qual only","Proof of funds","None"], scoreMap:{"Full pre-approval":3,"Pre-qual only":1,"Proof of funds":3,"None":0} },
+  { section:"Contingencies" },
+  { id:"inspect",   label:"Inspection days",       type:"number", score:"lowest" },
+  { id:"loan_cont", label:"Loan contingency",      type:"select", score:"select", opts:["—","Yes","No"], scoreMap:{"Yes":0,"No":3} },
+  { id:"appraise",  label:"Appraisal contingency", type:"select", score:"select", opts:["—","Full","Waived","Gap coverage"], scoreMap:{"Full":0,"Waived":3,"Gap coverage":2} },
+  { section:"Closing" },
+  { id:"coe",       label:"Close of escrow date",  type:"text",   score:false },
+  { id:"escalate",  label:"Escalation clause",     type:"select", score:false, opts:["—","Yes — see notes","No"] },
+  { section:"Notes" },
+  { id:"notes",     label:"Notes / conditions",    type:"text",   score:false },
+];
+
+function getVal(i, fid) { const el = document.getElementById(`f_${i}_${fid}`); return el ? el.value.trim() : ""; }
+
+function buildGrid() {
+  const grid = document.getElementById("offers-grid");
+  grid.innerHTML = OFFER_DEFS.map((o, i) => {
+    let fieldsHtml = "";
+    FIELDS.forEach(f => {
+      if (f.section) {
+        fieldsHtml += `<div class="section-divider">${f.section}</div>`;
+        return;
+      }
+      if (f.type === "select") {
+        const opts = f.opts.map(op => `<option value="${op}">${op}</option>`).join("");
+        fieldsHtml += `<div class="field-group"><div class="field-label">${f.label}</div><select id="f_${i}_${f.id}" onchange="recalc()">${opts}</select></div>`;
+      } else {
+        fieldsHtml += `<div class="field-group"><div class="field-label">${f.label}</div><input type="${f.type}" id="f_${i}_${f.id}" oninput="recalc()" /></div>`;
+      }
+    });
+    return `<div class="offer-card" id="card_${i}">
+      <div class="offer-header">
+        <span class="offer-label" style="color:${o.color}">${o.label}</span>
+        <span class="winner-badge" id="win_${i}" style="display:none">Top offer</span>
+      </div>
+      ${fieldsHtml}
+      <div class="score-box">
+        <div class="score-num" id="score_${i}" style="color:${o.color}">—</div>
+        <div class="score-sub">Score</div>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function recalc() {
+  const scores = [0, 0, 0];
+  const scoreable = FIELDS.filter(f => f.id && f.score);
+
+  scoreable.forEach(f => {
+    const vals = [0,1,2].map(i => {
+      const v = getVal(i, f.id);
+      if (f.score === "select") return f.scoreMap?.[v] ?? 0;
+      const n = parseFloat(v.replace(/,/g,""));
+      return isNaN(n) ? null : n;
+    });
+
+    if (f.score === "highest" || f.score === "lowest") {
+      const nums = vals.filter(v => v !== null);
+      if (!nums.length) return;
+      const best = f.score === "highest" ? Math.max(...nums) : Math.min(...nums);
+      const worst = f.score === "highest" ? Math.min(...nums) : Math.max(...nums);
+      const range = best - worst;
+      vals.forEach((v, i) => {
+        if (v === null) return;
+        const pts = range === 0 ? 3 : Math.round(((f.score === "highest" ? v - worst : worst - v) / range) * 3);
+        scores[i] += pts;
+      });
+    } else {
+      vals.forEach((v, i) => { scores[i] += (v || 0); });
+    }
+  });
+
+  const maxScore = Math.max(...scores);
+  scores.forEach((s, i) => {
+    const el = document.getElementById(`score_${i}`);
+    const win = document.getElementById(`win_${i}`);
+    const card = document.getElementById(`card_${i}`);
+    const hasData = !!getVal(i, "price");
+    if (!hasData) { el.textContent = "—"; win.style.display = "none"; card.classList.remove("winner"); return; }
+    el.textContent = s;
+    const isWinner = s === maxScore && s > 0;
+    win.style.display = isWinner ? "inline" : "none";
+    card.classList.toggle("winner", isWinner);
+  });
+
+  buildSummary();
+}
+
+function dollarFmt(v) {
+  const n = parseFloat((v || "").replace(/,/g, ""));
+  if (isNaN(n)) return v || "—";
+  return "$" + Math.round(n).toLocaleString();
+}
+
+function buildSummary() {
+  const hasAny = [0,1,2].some(i => getVal(i,"price"));
+  if (!hasAny) { document.getElementById("summary").innerHTML = ""; return; }
+
+  const addr = document.getElementById("prop-addr").value.trim();
+  const listRaw = parseFloat((document.getElementById("list-price").value || "").replace(/,/g,""));
+
+  const summaryFields = [
+    { label:"Offer price", fid:"price", fmt: (v,i) => {
+      const n = parseFloat(v.replace(/,/g,""));
+      if (isNaN(n)) return "—";
+      let html = dollarFmt(v);
+      if (!isNaN(listRaw)) {
+        const diff = n - listRaw;
+        const sign = diff >= 0 ? "+" : "";
+        const cls = diff >= 0 ? "vs-positive" : "vs-negative";
+        html += `<br><span class="${cls}">${sign}${dollarFmt(diff.toString())} vs. list</span>`;
+      }
+      return html;
+    }},
+    { label:"Down payment", fid:"down", fmt: v => v ? v+"%" : "—" },
+    { label:"Earnest money", fid:"earnest", fmt: dollarFmt },
+    { label:"Credits req.", fid:"credits", fmt: dollarFmt },
+    { label:"Financing", fid:"finance", fmt: v => v||"—" },
+    { label:"Pre-approval", fid:"preapprove", fmt: v => v||"—" },
+    { label:"Inspection days", fid:"inspect", fmt: v => v ? v+" days" : "—" },
+    { label:"Loan contingency", fid:"loan_cont", fmt: v => v||"—" },
+    { label:"Appraisal", fid:"appraise", fmt: v => v||"—" },
+    { label:"COE", fid:"coe", fmt: v => v||"—" },
+    { label:"Escalation", fid:"escalate", fmt: v => v||"—" },
+    { label:"Notes", fid:"notes", fmt: v => v||"—" },
+  ];
+
+  let html = `<div class="summary-section">
+    <div class="summary-title">${addr ? addr + " — " : ""}Offer Summary</div>
+    <table>
+      <thead><tr><th>Field</th>${OFFER_DEFS.map(o=>`<th style="color:${o.color}">${o.label}</th>`).join("")}</tr></thead>
+      <tbody>`;
+
+  summaryFields.forEach(row => {
+    const cells = [0,1,2].map(i => {
+      const v = getVal(i, row.fid);
+      if (!v || v === "—") return `<td style="color:#bbb">—</td>`;
+      return `<td>${row.fmt(v, i)}</td>`;
+    }).join("");
+    html += `<tr><td style="color:var(--text-muted);font-weight:500">${row.label}</td>${cells}</tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  document.getElementById("summary").innerHTML = html;
+}
+
+function clearAll() {
+  FIELDS.forEach(f => {
+    if (!f.id) return;
+    [0,1,2].forEach(i => {
+      const el = document.getElementById(`f_${i}_${f.id}`);
+      if (el) el.value = f.type === "select" ? "—" : "";
+    });
+  });
+  document.getElementById("prop-addr").value = "";
+  document.getElementById("list-price").value = "";
+  recalc();
+}
+
+buildGrid();
+</script>
+</body>
+</html>

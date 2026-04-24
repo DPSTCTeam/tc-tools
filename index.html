@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TC Agent Tools</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --blue: #1c7cad;
+    --blue-dark: #155f87;
+    --blue-light: #e8f4fb;
+    --text: #1a1a1a;
+    --text-secondary: #5a6472;
+    --text-muted: #8a9099;
+    --border: #e2e6ea;
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --radius: 12px;
+    --font: 'DM Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .hero {
+    background: linear-gradient(135deg, #1c7cad 0%, #0f4f73 100%);
+    color: white;
+    padding: 4rem 2rem 3rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero::before {
+    content: "";
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    bottom: -80px; left: -40px;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 14px;
+  }
+  .hero-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.6); }
+  .hero-title { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 12px; line-height: 1.1; }
+  .hero-title span { color: rgba(255,255,255,0.65); font-weight: 400; }
+  .hero-sub { font-size: 16px; opacity: 0.75; max-width: 480px; margin: 0 auto; line-height: 1.6; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 2.5rem 2rem 4rem; }
+
+  .section-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+
+  .tools-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-bottom: 3rem; }
+
+  .tool-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-decoration: none;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: box-shadow 0.2s, transform 0.15s, border-color 0.15s;
+    position: relative;
+  }
+  .tool-card:hover {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.09);
+    transform: translateY(-2px);
+    border-color: #c5d0db;
+  }
+  .tool-icon {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+  .tool-name { font-size: 16px; font-weight: 600; color: var(--text); }
+  .tool-desc { font-size: 13px; color: var(--text-secondary); line-height: 1.55; flex: 1; }
+  .tool-arrow {
+    font-size: 13px;
+    color: var(--blue);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .tool-tag {
+    position: absolute;
+    top: 16px; right: 16px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .divider { height: 1px; background: var(--border); margin: 2rem 0; }
+
+  .info-section { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+  .info-icon { font-size: 18px; margin-bottom: 8px; }
+  .info-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .info-text { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+
+  footer {
+    text-align: center;
+    padding: 1.5rem;
+    font-size: 12px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  @media (max-width: 600px) {
+    .hero { padding: 2.5rem 1rem 2rem; }
+    .hero-title { font-size: 28px; }
+    .container { padding: 1.5rem 1rem 3rem; }
+    .tools-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-eyebrow"><span class="hero-dot"></span>California Real Estate</div>
+  <h1 class="hero-title">TC Agent Tools <span>/ Resources</span></h1>
+  <p class="hero-sub">Interactive tools to help you work faster, compare smarter, and close with confidence.</p>
+</div>
+
+<div class="container">
+
+  <div class="section-label">Agent tools</div>
+  <div class="tools-grid">
+
+    <a href="milestone-tracker.html" class="tool-card">
+      <div class="tool-icon" style="background:#e8f4fb;">📋</div>
+      <div class="tool-name">Transaction Milestone Tracker</div>
+      <div class="tool-desc">Track every file from offer accepted to closed escrow. Add a COE target date and monitor progress stage by stage.</div>
+      <div class="tool-arrow">Open tool &#8594;</div>
+      <span class="tool-tag" style="background:#e8f4fb;color:#1c7cad;">Transactions</span>
+    </a>
+
+    <a href="offer-comparison.html" class="tool-card">
+      <div class="tool-icon" style="background:#f0ebfb;">⚖️</div>
+      <div class="tool-name">Offer Comparison Sheet</div>
+      <div class="tool-desc">Compare up to 3 offers side by side. Auto-scores by price, down payment, contingencies, and financing strength.</div>
+      <div class="tool-arrow">Open tool &#8594;</div>
+      <span class="tool-tag" style="background:#f0ebfb;color:#7c5cad;">Offers</span>
+    </a>
+
+    <a href="car-forms.html" class="tool-card">
+      <div class="tool-icon" style="background:#e8f5ee;">📄</div>
+      <div class="tool-name">CAR Form Quick Reference</div>
+      <div class="tool-desc">Search all major CAR forms by name, code, or situation. Filter by category to find the right form fast.</div>
+      <div class="tool-arrow">Open tool &#8594;</div>
+      <span class="tool-tag" style="background:#e8f5ee;color:#2e8a59;">Forms</span>
+    </a>
+
+    <a href="utility-lookup.html" class="tool-card">
+      <div class="tool-icon" style="background:#fff3e0;">🔌</div>
+      <div class="tool-name">Utility Vendor Lookup</div>
+      <div class="tool-desc">Find local utility providers by city in the Coachella Valley. Gas, electric, water, trash, and internet contacts.</div>
+      <div class="tool-arrow">Open tool &#8594;</div>
+      <span class="tool-tag" style="background:#fff3e0;color:#b87c2a;">Utilities</span>
+    </a>
+
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">About these tools</div>
+  <div class="info-section">
+    <div class="info-card">
+      <div class="info-icon">🔒</div>
+      <div class="info-title">Data stays on your device</div>
+      <div class="info-text">Transaction data entered in the Milestone Tracker is saved in your browser only. Nothing is sent to a server.</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">📱</div>
+      <div class="info-title">Works on mobile</div>
+      <div class="info-text">All tools are mobile-friendly. Bookmark this page for quick access from your phone or tablet.</div>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">📋</div>
+      <div class="info-title">California-specific</div>
+      <div class="info-text">Forms and workflows are tailored to California real estate transactions and CAR standards.</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  TC Agent Tools &mdash; California Real Estate Resources
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Transaction Milestone Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --blue: #1c7cad;
+    --blue-light: #e8f4fb;
+    --text: #1a1a1a;
+    --text-secondary: #5a6472;
+    --text-muted: #8a9099;
+    --border: #e2e6ea;
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --radius: 10px;
+    --font: 'DM Sans', sans-serif;
+    --green: #2e7d32;
+    --green-light: #e6f4ea;
+    --amber: #b87c2a;
+    --amber-light: #fff3e0;
+    --red: #c0392b;
+    --red-light: #fdecea;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1.25rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); display: inline-block; margin-right: 8px; }
+  .brand-name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .brand-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .back-link { font-size: 13px; color: var(--blue); text-decoration: none; }
+  .back-link:hover { text-decoration: underline; }
+
+  .page-hero {
+    background: linear-gradient(135deg, #1c7cad 0%, #155f87 100%);
+    color: white;
+    padding: 2.5rem 2rem 2rem;
+  }
+  .hero-title { font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+  .hero-sub { font-size: 14px; opacity: 0.8; }
+
+  .add-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .add-bar input { flex: 1; min-width: 160px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; }
+  .add-bar input:focus { border-color: var(--blue); background: white; }
+  .btn-primary { padding: 9px 18px; background: var(--blue); color: white; border: none; border-radius: 8px; font-size: 14px; font-family: var(--font); font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn-primary:hover { background: #155f87; }
+
+  .container { max-width: 900px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+  .summary-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-num { font-size: 24px; font-weight: 600; color: var(--blue); }
+  .stat-label { font-size: 11px; color: var(--text-muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .txns { display: flex; flex-direction: column; gap: 10px; }
+  .txn-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .txn-header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; cursor: pointer; user-select: none; }
+  .txn-header:hover { background: #fafbfc; }
+  .chevron { font-size: 11px; color: var(--text-muted); transition: transform 0.2s; flex-shrink: 0; }
+  .chevron.open { transform: rotate(90deg); }
+  .txn-info { flex: 1; min-width: 0; }
+  .txn-address { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .txn-agent { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .stage-badge { font-size: 11px; padding: 4px 11px; border-radius: 20px; font-weight: 500; white-space: nowrap; flex-shrink: 0; }
+  .btn-remove { font-size: 11px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; background: none; color: var(--text-muted); cursor: pointer; font-family: var(--font); flex-shrink: 0; }
+  .btn-remove:hover { border-color: var(--red); color: var(--red); }
+
+  .txn-body { padding: 14px 16px 16px; border-top: 1px solid var(--border); }
+  .progress-bar { height: 5px; background: var(--border); border-radius: 3px; margin-bottom: 6px; }
+  .progress-fill { height: 5px; border-radius: 3px; background: var(--blue); transition: width 0.4s ease; }
+  .progress-label { font-size: 11px; color: var(--text-muted); margin-bottom: 12px; }
+  .stages-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .stage-btn { font-size: 12px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text-secondary); cursor: pointer; font-family: var(--font); transition: all 0.15s; }
+  .stage-btn:hover { border-color: var(--blue); color: var(--blue); }
+  .stage-btn.done { background: var(--green-light); border-color: #a5d6a7; color: var(--green); }
+  .stage-btn.current { background: var(--blue); border-color: var(--blue); color: white; font-weight: 500; }
+  .meta-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; margin-top: 4px; }
+  .meta-block { display: flex; flex-direction: column; gap: 4px; }
+  .meta-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .meta-row input[type=date], .meta-row input[type=text] { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; }
+  .meta-row input:focus { border-color: var(--blue); background: white; }
+  .coe-countdown { font-size: 12px; font-weight: 500; margin-top: 3px; }
+  .notes-row { display: flex; gap: 8px; margin-top: 12px; }
+  .notes-row input { flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; }
+  .notes-row input:focus { border-color: var(--blue); background: white; }
+  .btn-save { padding: 7px 14px; background: var(--blue); color: white; border: none; border-radius: 7px; font-size: 13px; font-family: var(--font); cursor: pointer; }
+  .btn-save:hover { background: #155f87; }
+  .note-display { font-size: 12px; color: var(--text-secondary); font-style: italic; margin-top: 7px; padding: 8px 10px; background: var(--bg); border-radius: 6px; border-left: 3px solid var(--blue); }
+
+  .empty-state { text-align: center; padding: 4rem 1rem; color: var(--text-muted); }
+  .empty-state h3 { font-size: 16px; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary); }
+  .empty-state p { font-size: 13px; }
+
+  @media (max-width: 600px) {
+    header, .add-bar, .container { padding-left: 1rem; padding-right: 1rem; }
+    .page-hero { padding: 1.5rem 1rem; }
+    .summary-row { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <span class="brand-dot"></span>
+    <span class="brand-name">TC Agent Tools</span>
+    <div class="brand-sub" style="margin-left:18px;">Transaction Milestone Tracker</div>
+  </div>
+  <a href="index.html" class="back-link">&#8592; Back to tools</a>
+</header>
+
+<div class="page-hero">
+  <div class="hero-title">Transaction Milestone Tracker</div>
+  <div class="hero-sub">Track every file from offer accepted to closed escrow.</div>
+</div>
+
+<div class="add-bar">
+  <input type="text" id="addr-input" placeholder="Property address..." />
+  <input type="text" id="agent-input" placeholder="Agent name..." />
+  <button class="btn-primary" onclick="addTxn()">+ Add transaction</button>
+</div>
+
+<div class="container">
+  <div class="summary-row" id="summary-stats"></div>
+  <div class="txns" id="txn-list"></div>
+</div>
+
+<script>
+const STAGES = [
+  "Offer accepted","Escrow opened","Disclosures delivered","Disclosures signed",
+  "Inspection period","Inspection complete","Contingencies removed",
+  "Loan approval","Appraisal complete","Final walkthrough",
+  "Docs signed","Funded","Closed"
+];
+
+const STAGE_COLORS = {
+  "Offer accepted":      {bg:"#e8f4fb", color:"#1c7cad"},
+  "Escrow opened":       {bg:"#e8f4fb", color:"#1c7cad"},
+  "Disclosures delivered":{bg:"#fff3e0",color:"#b87c2a"},
+  "Disclosures signed":  {bg:"#fff3e0", color:"#b87c2a"},
+  "Inspection period":   {bg:"#fff3e0", color:"#b87c2a"},
+  "Inspection complete": {bg:"#fff3e0", color:"#b87c2a"},
+  "Contingencies removed":{bg:"#fdecea",color:"#c0392b"},
+  "Loan approval":       {bg:"#fdecea", color:"#c0392b"},
+  "Appraisal complete":  {bg:"#fdecea", color:"#c0392b"},
+  "Final walkthrough":   {bg:"#e6f4ea", color:"#2e7d32"},
+  "Docs signed":         {bg:"#e6f4ea", color:"#2e7d32"},
+  "Funded":              {bg:"#e6f4ea", color:"#2e7d32"},
+  "Closed":              {bg:"#d4ead4", color:"#1b5e20"},
+};
+
+let txns = [];
+try { txns = JSON.parse(localStorage.getItem("tc_txns_v2") || "[]"); } catch(e) {}
+
+function save() { try { localStorage.setItem("tc_txns_v2", JSON.stringify(txns)); } catch(e) {} }
+
+function addTxn() {
+  const addr = document.getElementById("addr-input").value.trim();
+  const agent = document.getElementById("agent-input").value.trim();
+  if (!addr) { document.getElementById("addr-input").focus(); return; }
+  txns.unshift({ id: Date.now(), addr, agent, stage: STAGES[0], completed: [STAGES[0]], note: "", coe: "", open: true });
+  save();
+  document.getElementById("addr-input").value = "";
+  document.getElementById("agent-input").value = "";
+  renderAll();
+}
+
+function deleteTxn(id) { if (confirm("Remove this transaction?")) { txns = txns.filter(t => t.id !== id); save(); renderAll(); } }
+function toggleOpen(id) { const t = txns.find(t=>t.id===id); if(t){t.open=!t.open; save(); renderAll();} }
+
+function setStage(id, stage) {
+  const t = txns.find(t=>t.id===id);
+  if (!t) return;
+  const idx = STAGES.indexOf(stage);
+  t.stage = stage;
+  t.completed = STAGES.slice(0, idx + 1);
+  save(); renderAll();
+}
+
+function saveNote(id) {
+  const t = txns.find(t=>t.id===id);
+  const el = document.getElementById("note-" + id);
+  if (t && el) { t.note = el.value.trim(); save(); renderAll(); }
+}
+
+function setCOE(id, val) { const t = txns.find(t=>t.id===id); if(t){t.coe=val; save(); renderAll();} }
+
+function daysUntil(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T00:00:00");
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((d - today) / 86400000);
+  if (diff === 0) return { text:"Closing today!", color:"#2e7d32" };
+  if (diff < 0) return { text:`${Math.abs(diff)}d past COE`, color:"#c0392b" };
+  if (diff <= 7) return { text:`${diff}d to close`, color:"#b87c2a" };
+  return { text:`${diff} days to close`, color:"#1c7cad" };
+}
+
+function renderStats() {
+  const total = txns.length;
+  const closed = txns.filter(t=>t.stage==="Closed").length;
+  const active = total - closed;
+  const closingSoon = txns.filter(t => {
+    if (!t.coe || t.stage==="Closed") return false;
+    const d = new Date(t.coe+"T00:00:00");
+    const today = new Date(); today.setHours(0,0,0,0);
+    return Math.round((d-today)/86400000) <= 7;
+  }).length;
+
+  document.getElementById("summary-stats").innerHTML = total === 0 ? "" : `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total files</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#2e7d32">${active}</div><div class="stat-label">Active</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#888">${closed}</div><div class="stat-label">Closed</div></div>
+    <div class="stat-card"><div class="stat-num" style="color:#b87c2a">${closingSoon}</div><div class="stat-label">Closing in 7d</div></div>
+  `;
+}
+
+function renderAll() {
+  renderStats();
+  const list = document.getElementById("txn-list");
+  if (!txns.length) {
+    list.innerHTML = `<div class="empty-state"><h3>No transactions yet</h3><p>Add a transaction above to start tracking milestones.</p></div>`;
+    return;
+  }
+  list.innerHTML = txns.map(t => {
+    const sc = STAGE_COLORS[t.stage] || {bg:"#eee",color:"#555"};
+    const pct = Math.round((t.completed.length / STAGES.length) * 100);
+    const coe = daysUntil(t.coe);
+    const stagesHtml = STAGES.map(s => {
+      const done = t.completed.includes(s);
+      const current = t.stage === s;
+      return `<span class="stage-btn${current?' current':done?' done':''}" onclick="setStage(${t.id},'${s.replace(/'/g,"\\'")}')">
+        ${done && !current ? "✓ " : ""}${s}
+      </span>`;
+    }).join("");
+
+    return `<div class="txn-card">
+      <div class="txn-header" onclick="toggleOpen(${t.id})">
+        <span class="chevron${t.open?' open':''}">&#9654;</span>
+        <div class="txn-info">
+          <div class="txn-address">${t.addr}</div>
+          ${t.agent ? `<div class="txn-agent">Agent: ${t.agent}</div>` : ""}
+        </div>
+        <span class="stage-badge" style="background:${sc.bg};color:${sc.color}">${t.stage}</span>
+        <button class="btn-remove" onclick="event.stopPropagation();deleteTxn(${t.id})">Remove</button>
+      </div>
+      ${t.open ? `<div class="txn-body">
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-label">${pct}% complete — ${STAGES.length - t.completed.length} stage${STAGES.length - t.completed.length !== 1 ? 's' : ''} remaining</div>
+        <div class="stages-wrap">${stagesHtml}</div>
+        <div class="meta-row">
+          <div class="meta-block">
+            <div class="meta-label">COE target date</div>
+            <input type="date" value="${t.coe}" onchange="setCOE(${t.id},this.value)" />
+            ${coe ? `<div class="coe-countdown" style="color:${coe.color}">${coe.text}</div>` : ""}
+          </div>
+        </div>
+        <div class="notes-row">
+          <input type="text" id="note-${t.id}" value="${t.note.replace(/"/g,'&quot;')}" placeholder="Add a note for this file..." />
+          <button class="btn-save" onclick="saveNote(${t.id})">Save</button>
+        </div>
+        ${t.note ? `<div class="note-display">${t.note}</div>` : ""}
+      </div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+renderAll();
+</script>
+</body>
+</html>

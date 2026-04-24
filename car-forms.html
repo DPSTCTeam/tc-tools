@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CAR Form Quick Reference</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --blue: #1c7cad;
+    --blue-light: #e8f4fb;
+    --text: #1a1a1a;
+    --text-secondary: #5a6472;
+    --text-muted: #8a9099;
+    --border: #e2e6ea;
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --radius: 10px;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1.25rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); }
+  .brand-name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .brand-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .back-link { font-size: 13px; color: var(--blue); text-decoration: none; display: flex; align-items: center; gap: 5px; }
+  .back-link:hover { text-decoration: underline; }
+
+  .page-hero {
+    background: linear-gradient(135deg, #1c7cad 0%, #155f87 100%);
+    color: white;
+    padding: 2.5rem 2rem 2rem;
+  }
+  .hero-title { font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+  .hero-sub { font-size: 14px; opacity: 0.8; }
+
+  .controls {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 2rem;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .search-wrap { position: relative; flex: 1; min-width: 220px; }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+  .search-wrap input { width: 100%; padding: 9px 12px 9px 36px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; }
+  .search-wrap input:focus { border-color: var(--blue); background: white; }
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { font-size: 12px; padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: all 0.15s; font-family: var(--font); }
+  .pill:hover { border-color: var(--blue); color: var(--blue); }
+  .pill.active { background: var(--blue); border-color: var(--blue); color: white; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+  .stats { font-size: 12px; color: var(--text-muted); margin-bottom: 1rem; }
+
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px; }
+  .form-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    transition: box-shadow 0.15s, border-color 0.15s;
+  }
+  .form-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.07); border-color: #cbd1d8; }
+  .card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .form-code { font-size: 13px; font-weight: 500; color: var(--blue); font-family: var(--mono); }
+  .cat-badge { font-size: 11px; padding: 3px 9px; border-radius: 10px; white-space: nowrap; flex-shrink: 0; font-weight: 500; }
+  .form-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+  .form-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.55; margin-bottom: 10px; }
+  .when-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+  .when-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+  .required-tag { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 4px; margin-top: 8px; font-weight: 600; }
+  .req-yes { background: #e6f4ea; color: #2e7d32; }
+  .req-no { background: #f1f3f5; color: #6b7380; }
+  .no-results { grid-column: 1/-1; text-align: center; padding: 4rem 1rem; color: var(--text-muted); font-size: 14px; }
+
+  @media (max-width: 600px) {
+    header { padding: 1rem; }
+    .page-hero { padding: 1.5rem 1rem; }
+    .controls { padding: 0.75rem 1rem; }
+    .container { padding: 1rem; }
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div>
+        <div class="brand-name">TC Agent Tools</div>
+        <div class="brand-sub">CAR Form Quick Reference</div>
+      </div>
+    </div>
+  </div>
+  <a href="index.html" class="back-link">&#8592; Back to tools</a>
+</header>
+
+<div class="page-hero">
+  <div class="hero-title">CAR Form Quick Reference</div>
+  <div class="hero-sub">Search by form name, code, or situation — find the right form fast.</div>
+</div>
+
+<div class="controls">
+  <div class="search-wrap">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="search" placeholder="Search by form name, code, or situation..." />
+  </div>
+  <div class="filter-row" id="filters"></div>
+</div>
+
+<div class="container">
+  <div class="stats" id="stats"></div>
+  <div class="form-grid" id="grid"></div>
+</div>
+
+<script>
+const FORMS = [
+  { code:"RPA", name:"Residential Purchase Agreement", cat:"Purchase", desc:"The primary contract for residential home purchases in California. Covers price, terms, contingencies, and closing conditions.", when:"Every residential purchase transaction — this is the foundation document.", required:true },
+  { code:"RIPA", name:"Residential Income Purchase Agreement", cat:"Purchase", desc:"Used for 2–4 unit residential income properties. Similar to RPA but adapted for income-generating properties.", when:"Purchasing duplexes, triplexes, or fourplexes.", required:true },
+  { code:"VLPA", name:"Vacant Land Purchase Agreement", cat:"Purchase", desc:"Purchase agreement specifically for unimproved land. Addresses zoning, soil, utilities, and entitlement contingencies.", when:"Any purchase of raw or vacant land.", required:true },
+  { code:"COP", name:"Contingency of Buyer's Property Sale", cat:"Contingency", desc:"Allows buyer's offer to be contingent on the sale of their existing property. Seller retains the right to accept other offers with a notice to perform.", when:"Buyer needs to sell their current home before closing on the new one.", required:false },
+  { code:"CR", name:"Contingency Removal", cat:"Contingency", desc:"Formally removes one or more contingencies from the contract (inspection, loan, appraisal, etc.).", when:"After buyer satisfies or elects to waive a contingency.", required:false },
+  { code:"NBP", name:"Notice to Buyer to Perform", cat:"Contingency", desc:"Seller's notice giving buyer a 48-hour deadline to remove contingencies or take a required action.", when:"Buyer has not removed contingencies by the deadline. Precedes cancellation.", required:false },
+  { code:"NSP", name:"Notice to Seller to Perform", cat:"Contingency", desc:"Buyer's notice giving seller a 48-hour deadline to perform a required obligation (e.g., deliver disclosures).", when:"Seller has not fulfilled a contractual obligation on time.", required:false },
+  { code:"SCO", name:"Seller Counter Offer", cat:"Negotiation", desc:"Seller's formal counter offer to a buyer's initial offer or counter. Can modify any terms of the RPA.", when:"Seller wants to negotiate price, terms, or conditions from the buyer's offer.", required:false },
+  { code:"COBA", name:"Counter Offer — Buyer to Agent", cat:"Negotiation", desc:"Buyer's counter offer form used to modify terms of a seller's counter offer.", when:"Buyer is responding to a seller counter offer with modified terms.", required:false },
+  { code:"MCOS", name:"Multiple Counter Offer Selection", cat:"Negotiation", desc:"Used when seller issues counter offers to multiple buyers. Buyer must sign this form for their counter to become binding.", when:"Multiple offer situations where seller counters more than one buyer.", required:false },
+  { code:"TDS", name:"Transfer Disclosure Statement", cat:"Disclosure", desc:"Seller's mandatory disclosure of known property defects and conditions. One of the most legally significant forms in CA real estate.", when:"Required on virtually all 1–4 unit residential property sales.", required:true },
+  { code:"SPQ", name:"Seller Property Questionnaire", cat:"Disclosure", desc:"Supplements the TDS with more detailed questions about the property's systems, history, and condition.", when:"Used alongside the TDS on residential sales. Standard practice.", required:false },
+  { code:"NHD", name:"Natural Hazard Disclosure", cat:"Disclosure", desc:"Discloses whether property is in a natural hazard zone (fire, flood, earthquake, etc.). Usually prepared by a third-party NHD company.", when:"All residential sales in California. Typically ordered early in the listing process.", required:true },
+  { code:"AVID", name:"Agent Visual Inspection Disclosure", cat:"Disclosure", desc:"Agent's written disclosure of visually observable defects noted during a walkthrough. Required of both listing and buyer's agents.", when:"Both agents complete this after a property inspection/walkthrough.", required:true },
+  { code:"SBSA", name:"Statewide Buyer and Seller Advisory", cat:"Disclosure", desc:"Comprehensive advisory covering environmental hazards, legal concerns, market conditions, and buyer/seller rights.", when:"All residential transactions. Typically provided at or before acceptance.", required:false },
+  { code:"WPA", name:"Water-Conserving Plumbing Fixtures Disclosure", cat:"Disclosure", desc:"Seller disclosure regarding compliance with California's water-conserving fixture requirements.", when:"All residential sales. Seller confirms fixtures are compliant or discloses non-compliance.", required:true },
+  { code:"HOA", name:"HOA/Common Interest Disclosure", cat:"Disclosure", desc:"Discloses HOA information including fees, CC&Rs, litigation, and special assessments.", when:"Any property in a planned development, condo, or HOA-governed community.", required:true },
+  { code:"FLD", name:"Flood Insurance Disclosure", cat:"Disclosure", desc:"Informs buyer about flood insurance requirements and availability when property is in a designated flood zone.", when:"Property is located in a FEMA flood zone or lender requires flood coverage.", required:false },
+  { code:"CLUE", name:"CLUE Report Request", cat:"Disclosure", desc:"Requests the Comprehensive Loss Underwriting Exchange report showing prior insurance claims on the property.", when:"Useful when property has unknown loss history or prior water/fire damage concerns.", required:false },
+  { code:"WSPD", name:"Wood Smoke/Solid Fuel Heater Disclosure", cat:"Disclosure", desc:"Discloses presence and compliance status of wood-burning fireplaces or stoves per local air quality rules.", when:"Property has a fireplace, wood stove, or pellet stove.", required:false },
+  { code:"AD", name:"Agency Disclosure", cat:"Agency", desc:"Explains buyer and seller representation relationships. Both parties must acknowledge it.", when:"Required at first substantive contact. Must be signed before making or accepting an offer.", required:true },
+  { code:"PRBS", name:"Possible Representation of Both Buyer and Seller", cat:"Agency", desc:"Disclosure that the agent may represent both buyer and seller (dual agency) in the same transaction.", when:"Agent is showing a listing to a buyer they also represent.", required:true },
+  { code:"DA", name:"Disclosure and Consent for Representation of More Than One Buyer or Seller", cat:"Agency", desc:"Written consent for an agent/brokerage to represent multiple parties in competing transactions.", when:"Agent represents more than one party in competing transactions.", required:true },
+  { code:"BIA", name:"Buyer Representation and Broker Compensation Agreement", cat:"Agency", desc:"Required post-NAR settlement agreement establishing buyer representation and buyer's agent compensation terms.", when:"Required before showing property. Mandatory since August 2024 NAR settlement.", required:true },
+  { code:"SELM", name:"Seller Listing Agreement — Exclusive Right to Sell", cat:"Listing", desc:"The standard listing agreement granting broker the exclusive right to sell. Commission earned regardless of who procures the buyer.", when:"Listing a property for sale with full MLS marketing.", required:true },
+  { code:"SELN", name:"Seller Listing Agreement — Exclusive Agency", cat:"Listing", desc:"Broker earns commission unless seller finds buyer independently.", when:"Seller wants the option to sell on their own without paying commission.", required:false },
+  { code:"RLA", name:"Residential Listing Agreement — Open Listing", cat:"Listing", desc:"Non-exclusive listing where commission is only owed to the broker who procures the buyer.", when:"Rarely used in CA residential. Seller may list with multiple brokers simultaneously.", required:false },
+  { code:"RR", name:"Request for Repair", cat:"Inspection", desc:"Buyer's formal written request for repairs or credits following a property inspection.", when:"After inspection, if buyer wants the seller to address findings.", required:false },
+  { code:"RRRR", name:"Response to Request for Repair", cat:"Inspection", desc:"Seller's formal written response to a repair request — accepting, rejecting, or negotiating terms.", when:"After receiving a buyer's RR form.", required:false },
+  { code:"CC", name:"Cancellation of Contract", cat:"Cancellation", desc:"Formal cancellation of the purchase agreement. Includes release of deposit instructions.", when:"Either party is canceling the transaction. Triggers escrow deposit dispute resolution.", required:false },
+  { code:"ADM", name:"Addendum", cat:"Addendum", desc:"General-purpose addendum to add terms, conditions, or provisions not covered in the primary contract.", when:"Any time additional terms need to be added to the agreement.", required:false },
+  { code:"FCA", name:"Fixture and Fittings Agreement / Addendum", cat:"Addendum", desc:"Clarifies which fixtures, personal property, and appliances are included or excluded from the sale.", when:"Seller plans to keep items that could be considered fixtures, or buyer wants specific inclusions.", required:false },
+  { code:"RPCA", name:"Revised Purchase Contract Addendum", cat:"Addendum", desc:"Used to formally amend specific terms of the RPA after execution — price changes, date extensions, etc.", when:"Any time the parties mutually agree to change a term of the executed contract.", required:false },
+  { code:"TOPA", name:"Tenant Occupied Property Addendum", cat:"Addendum", desc:"Addresses rights and obligations when purchasing a tenant-occupied property, including lease status and right of entry.", when:"Property is occupied by a tenant at the time of sale.", required:false },
+  { code:"SIP", name:"Short Sale Addendum / Information and Advisory", cat:"Addendum", desc:"Discloses the short sale process, timelines, lender approval requirements, and buyer risks.", when:"Property is a short sale subject to lender approval.", required:false },
+  { code:"PA", name:"Probate Purchase Addendum", cat:"Addendum", desc:"Addendum for purchases requiring court confirmation in a probate sale.", when:"Property is being sold as part of an estate subject to probate court oversight.", required:false },
+];
+
+const CATS = [...new Set(FORMS.map(f => f.cat))].sort();
+const CAT_COLORS = {
+  Purchase:"#1c7cad", Negotiation:"#7c5cad", Disclosure:"#2e8a59",
+  Contingency:"#b87c2a", Cancellation:"#c0392b", Inspection:"#16a085",
+  Agency:"#6d3fad", Addendum:"#555e6e", Listing:"#2471a3"
+};
+
+let activecat = "All", query = "";
+
+function render() {
+  const filtered = FORMS.filter(f => {
+    const matchCat = activecat === "All" || f.cat === activecat;
+    const q = query.toLowerCase();
+    const matchQ = !q || [f.code,f.name,f.desc,f.when,f.cat].some(s => s.toLowerCase().includes(q));
+    return matchCat && matchQ;
+  });
+  document.getElementById("stats").textContent = `Showing ${filtered.length} of ${FORMS.length} forms`;
+  const grid = document.getElementById("grid");
+  if (!filtered.length) { grid.innerHTML = `<div class="no-results">No forms match. Try a different search term or clear the filter.</div>`; return; }
+  grid.innerHTML = filtered.map(f => {
+    const color = CAT_COLORS[f.cat] || "#888";
+    return `<div class="form-card">
+      <div class="card-top">
+        <span class="form-code">${f.code}</span>
+        <span class="cat-badge" style="background:${color}18;color:${color}">${f.cat}</span>
+      </div>
+      <div class="form-name">${f.name}</div>
+      <div class="form-desc">${f.desc}</div>
+      <div class="when-label">When to use</div>
+      <div class="when-text">${f.when}</div>
+      <span class="required-tag ${f.required?'req-yes':'req-no'}">${f.required?'Required':'Situational'}</span>
+    </div>`;
+  }).join("");
+}
+
+function buildFilters() {
+  const row = document.getElementById("filters");
+  row.innerHTML = ["All", ...CATS].map(c =>
+    `<span class="pill${c===activecat?' active':''}" data-cat="${c}">${c}</span>`
+  ).join("");
+  row.querySelectorAll(".pill").forEach(p => p.addEventListener("click", () => {
+    activecat = p.dataset.cat; buildFilters(); render();
+  }));
+}
+
+document.getElementById("search").addEventListener("input", e => { query = e.target.value; render(); });
+buildFilters(); render();
+</script>
+</body>
+</html>
