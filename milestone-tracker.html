@@ -113,6 +113,17 @@
   .empty-state h3 { font-size: 16px; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary); }
   .empty-state p { font-size: 13px; }
 
+  @media print {
+    header { position: static; }
+    .add-bar { display: none; }
+    .page-hero { background: #1c7cad !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .txn-body { display: block !important; }
+    .txn-card { break-inside: avoid; border: 1px solid #ccc !important; margin-bottom: 8px; }
+    .stage-btn { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-size: 10px; padding: 3px 7px; }
+    .progress-fill { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .btn-remove { display: none; }
+    .container { padding: 0.5rem; }
+  }
   @media (max-width: 600px) {
     header, .add-bar, .container { padding-left: 1rem; padding-right: 1rem; }
     .page-hero { padding: 1.5rem 1rem; }
@@ -140,6 +151,7 @@
   <input type="text" id="addr-input" placeholder="Property address..." />
   <input type="text" id="agent-input" placeholder="Agent name..." />
   <button class="btn-primary" onclick="addTxn()">+ Add transaction</button>
+  <button class="btn-primary" onclick="window.print()" style="background:var(--surface);color:var(--text-secondary);border:1px solid var(--border);">🖨️ Print</button>
 </div>
 
 <div class="container">

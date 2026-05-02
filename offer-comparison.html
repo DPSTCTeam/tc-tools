@@ -92,6 +92,18 @@
   .vs-positive { color: #2e7d32; font-size: 11px; }
   .vs-negative { color: #c0392b; font-size: 11px; }
 
+  @media print {
+    header { position: static; }
+    .page-hero { background: #1c7cad !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .offer-card { break-inside: avoid; border: 1px solid #ccc !important; }
+    .offers-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .score-box { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .winner { border: 2px solid #1c7cad !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .winner-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .vs-positive, .vs-negative { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .field-group input, .field-group select { border: none; background: none; padding: 0; font-size: 12px; }
+    .section-divider { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
   @media (max-width: 768px) {
     header, .container { padding-left: 1rem; padding-right: 1rem; }
     .page-hero { padding: 1.5rem 1rem; }
@@ -126,6 +138,7 @@
   <div class="controls">
     <button class="btn-primary" onclick="recalc()">Recalculate</button>
     <button class="btn-secondary" onclick="clearAll()">Clear all</button>
+    <button class="btn-secondary" onclick="window.print()">🖨️ Print</button>
   </div>
 
   <div id="summary"></div>

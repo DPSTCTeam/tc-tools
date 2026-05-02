@@ -54,6 +54,16 @@
   .req-yes { background: #e6f4ea; color: #2e7d32; }
   .req-no { background: #f1f3f5; color: #6b7380; }
   .no-results { grid-column: 1/-1; text-align: center; padding: 4rem 1rem; color: var(--text-muted); font-size: 14px; }
+  @media print {
+    header { position: static; box-shadow: none; }
+    .controls { display: none; }
+    .page-hero { background: #1c7cad !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .form-card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ccc !important; }
+    .cat-badge { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .req-yes, .req-no { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .form-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .container { padding: 1rem; }
+  }
   @media (max-width: 600px) { header { padding: 1rem; } .page-hero { padding: 1.5rem 1rem; } .controls { padding: 0.75rem 1rem; } .container { padding: 1rem; } .form-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -79,6 +89,7 @@
     <input type="text" id="search" placeholder="Search by form name, code, or situation..." />
   </div>
   <div class="filter-row" id="filters"></div>
+  <button onclick="window.print()" class="pill" style="margin-left:auto;white-space:nowrap;">🖨️ Print</button>
 </div>
 
 <div class="container">
