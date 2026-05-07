@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CV Subdivision & HOA Directory</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --blue: #1c7cad;
+    --blue-dark: #145f87;
+    --blue-light: #e8f4fb;
+    --text: #1a1a1a;
+    --text-secondary: #5a6472;
+    --text-muted: #8a9099;
+    --border: #e2e6ea;
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --radius: 10px;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; position: sticky; top: 0; z-index: 100; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--blue); display: inline-block; margin-right: 8px; }
+  .brand-name { font-size: 15px; font-weight: 600; }
+  .brand-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .back-link { font-size: 13px; color: var(--blue); text-decoration: none; }
+  .back-link:hover { text-decoration: underline; }
+
+  .page-hero { background: linear-gradient(135deg, #1c7cad 0%, #155f87 100%); color: white; padding: 2.5rem 2rem 2rem; }
+  .hero-title { font-size: 26px; font-weight: 600; margin-bottom: 6px; }
+  .hero-sub { font-size: 14px; opacity: 0.8; }
+
+  .controls { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .search-wrap { position: relative; flex: 1; min-width: 220px; }
+  .search-wrap svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+  .search-wrap input { width: 100%; padding: 9px 12px 9px 36px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; font-family: var(--font); background: var(--bg); color: var(--text); outline: none; }
+  .search-wrap input:focus { border-color: var(--blue); background: white; }
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pill { font-size: 12px; padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); cursor: pointer; transition: all 0.15s; font-family: var(--font); white-space: nowrap; }
+  .pill:hover { border-color: var(--blue); color: var(--blue); }
+  .pill.active { background: var(--blue); border-color: var(--blue); color: white; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem 2rem 3rem; }
+  .meta-bar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 1rem; }
+  .stats { font-size: 12px; color: var(--text-muted); }
+  .caveat { font-size: 11px; background: #fff8e1; border: 1px solid #ffe082; color: #7c5c00; padding: 6px 12px; border-radius: 6px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); font-size: 13px; }
+  thead th { background: var(--bg); font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  thead th:hover { color: var(--blue); }
+  thead th .sort-icon { font-size: 10px; margin-left: 4px; opacity: 0.5; }
+  thead th.sorted .sort-icon { opacity: 1; color: var(--blue); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafbfc; }
+  tbody td { padding: 10px 14px; vertical-align: top; color: var(--text); }
+  .td-subdivision { font-weight: 500; color: var(--text); min-width: 160px; }
+  .td-area { color: var(--text-secondary); min-width: 140px; }
+  .td-mgmt { color: var(--text-secondary); min-width: 160px; }
+  .td-phone { font-family: var(--mono); font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+  .td-phone a { color: var(--blue); text-decoration: none; }
+  .td-phone a:hover { text-decoration: underline; }
+  .na-tag { font-size: 11px; color: var(--text-muted); font-style: italic; }
+  .area-badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 8px; background: var(--blue-light); color: var(--blue-dark); font-weight: 500; white-space: nowrap; }
+
+  .no-results { text-align: center; padding: 4rem 1rem; color: var(--text-muted); font-size: 14px; }
+
+  @media print {
+    header { position: static; }
+    .controls { display: none; }
+    .page-hero { background: #1c7cad !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    table { font-size: 10px; }
+    tbody td { padding: 5px 8px; }
+    thead th { padding: 6px 8px; }
+    .caveat { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  @media (max-width: 768px) {
+    header, .controls, .container { padding-left: 1rem; padding-right: 1rem; }
+    .page-hero { padding: 1.5rem 1rem; }
+    table { font-size: 12px; }
+    .td-mgmt { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <span class="brand-dot"></span>
+    <span class="brand-name">TC Agent Tools</span>
+    <div class="brand-sub" style="margin-left:18px;">CV Subdivision & HOA Directory</div>
+  </div>
+  <a href="index.html" class="back-link">&#8592; Back to tools</a>
+</header>
+
+<div class="page-hero">
+  <div class="hero-title">Coachella Valley Subdivision & HOA Directory</div>
+  <div class="hero-sub">Search 400+ subdivisions by name, area, or management company.</div>
+</div>
+
+<div class="controls">
+  <div class="search-wrap">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="search" placeholder="Search subdivision, management company, or area..." />
+  </div>
+  <div class="filter-row" id="filters"></div>
+  <button class="pill" onclick="window.print()" style="margin-left:auto;">🖨️ Print</button>
+</div>
+
+<div class="container">
+  <div class="meta-bar">
+    <div class="stats" id="stats"></div>
+    <div class="caveat">⚠️ Source data from CDAR, verified as of 1/11/2021. Always confirm current HOA contact before using.</div>
+  </div>
+  <div id="table-wrap"></div>
+</div>
+
+<script>
+const AREAS = [
+  "307 - Sun City",
+  "308 - La Quinta N. of HWY 111",
+  "309 - Indio N. of I-10",
+  "311 - Indio Central",
+  "312 - Bermuda Dunes",
+  "313 - La Quinta S. of HWY 111",
+  "314 - Indio S. of HWY 111",
+  "315 - Coachella",
+  "320 - Thousand Palms",
+  "321 - Rancho Mirage",
+  "322 - Palm Desert North",
+  "323 - Palm Desert South",
+  "324 - Palm Desert East",
+  "325 - Indian Wells",
+  "326 - Mtn Center / Pinyon Pines",
+  "331 - Palm Springs North",
+  "332 - Palm Springs Central",
+  "334 - Palm Springs South",
+  "335 - Cathedral City North",
+  "336 - Cathedral City South",
+  "340 - Desert Hot Springs",
+  "341 - Mission Lakes",
+  "381 - Salton Sea / Imperial County",
+];
+
+const DATA = [
+  // 307 - Sun City
+  ["Sun City","307 - Sun City","Sun City HOA","38180 Del Webb Blvd, Palm Desert, CA 92211","760-200-2222"],
+  // 308 - La Quinta N. of HWY 111
+  ["Aliso","308 - La Quinta N. of HWY 111","Aliso HOA","79461 Paseo Del Rey, La Quinta, CA 92253","760-200-1511"],
+  ["Bella Vista","308 - La Quinta N. of HWY 111","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Darby Estates","308 - La Quinta N. of HWY 111","Darby Estates HOA","43335 Croisette Ct, La Quinta, CA 92253","760-625-6210"],
+  ["Esplanade","308 - La Quinta N. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["La Quinta Del Oro","308 - La Quinta N. of HWY 111","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["La Quinta Desert Villas","308 - La Quinta N. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Monticello","308 - La Quinta N. of HWY 111","Professional Community Mgt.","11860 Pierce Street #100, Riverside, CA 92505","951-359-2840"],
+  ["Palm Royale","308 - La Quinta N. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Sonrisa","308 - La Quinta N. of HWY 111","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Starlight Dunes","308 - La Quinta N. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Sunflower","308 - La Quinta N. of HWY 111","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  // 309 - Indio N. of I-10
+  ["Aliante","309 - Indio N. of I-10","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Cristallo at Terra Lago","309 - Indio N. of I-10","Terra Lago Community Association","42900 Lago Vista, Indio, CA 92203","760-347-9427"],
+  ["Desert Collection","309 - Indio N. of I-10","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Desert Trace","309 - Indio N. of I-10","First Service Residential","43100 Cook Street, Palm Desert, CA 92260","760-834-8948"],
+  ["Espana","309 - Indio N. of I-10","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Four Seasons Terra Lago","309 - Indio N. of I-10","Terra Lago Community Association","42900 Lago Vista, Indio, CA 92203","760-775-3165"],
+  ["Foxstone","309 - Indio N. of I-10","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Generations","309 - Indio N. of I-10","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Haciendas","309 - Indio N. of I-10","First Service Residential","43100 Cook Street, Palm Desert, CA 92260","760-834-2480"],
+  ["Happy Wanderer","309 - Indio N. of I-10","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","N/A"],
+  ["Mountain Estates","309 - Indio N. of I-10","Rancho Casitas HOA","46618 Madison St, Indio, CA 92201","760-347-9427"],
+  ["North Indio Rancho","309 - Indio N. of I-10","Rancho Casitas HOA","46618 Madison St, Indio, CA 92201","760-347-9427"],
+  ["Palazzo","309 - Indio N. of I-10","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Portofino","309 - Indio N. of I-10","Villa Portofino Homeowners","10690 Escobar, San Diego, CA 92124","858-571-0722"],
+  ["Rancho Casa Blanca","309 - Indio N. of I-10","Rancho Casa Blanca","84136 Ave 44, Indio, CA 92201","760-347-1999"],
+  ["San Milan","309 - Indio N. of I-10","San Milan at Paradiso","45000 Club Dr., Indian Wells, CA 92210","760-203-5830"],
+  ["Sandhurst Cove","309 - Indio N. of I-10","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Shadow Hills","309 - Indio N. of I-10","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Shadow Hills Villas","309 - Indio N. of I-10","Sun City Shadow Hills","80814 Sun City Blvd., Indio, CA 92203","760-345-4349"],
+  ["Shadow Lake Estates","309 - Indio N. of I-10","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Shadow Ranch","309 - Indio N. of I-10","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Sonora Wells","309 - Indio N. of I-10","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Sun City Shadow Hills","309 - Indio N. of I-10","Sun City Shadow Hills","80814 Sun City Blvd., Indio, CA 92203","760-345-4349"],
+  ["Talavera","309 - Indio N. of I-10","Vintage Group","77772 Flora Road Suite A, Palm Desert, CA 92211","855-403-3852"],
+  ["Terra Lago","309 - Indio N. of I-10","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  // 311 - Indio Central
+  ["Chateau Palms","311 - Indio Central","Palm Royale Country Club","78259 Indigo Dr., La Quinta, CA 92253","760-345-9701"],
+  ["Heritage Palms CC","311 - Indio Central","Heritage Palms HOA","44291 S. Heritage Palms Dr., Indio, CA 92210","760-772-5744"],
+  ["Indian Springs","311 - Indio Central","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Las Colinas","311 - Indio Central","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Lido Palms","311 - Indio Central","Lido Palms","12801 Tamar Dr., Desert Hot Springs, CA 92240","760-345-5661"],
+  ["Oasis Palms","311 - Indio Central","The Oasis Country Club","42330 Cabash Way, Palm Desert, CA 92211","760-345-5661"],
+  ["Rancho Casitas","311 - Indio Central","Rancho Casitas HOA","46618 Madison St, Indio, CA 92201","760-347-9427"],
+  ["Waring Palms","311 - Indio Central","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Wild Flower","311 - Indio Central","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  // 312 - Bermuda Dunes
+  ["BDCC Bellissimo","312 - Bermuda Dunes","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["BDCC Castle","312 - Bermuda Dunes","Bermuda Dunes Country Club","42765 Adams St., Bermuda Dunes, CA 92203","760-345-2771"],
+  ["BDCC Colonial","312 - Bermuda Dunes","Bermuda Dunes Country Club","42765 Adams St., Bermuda Dunes, CA 92203","760-345-2771"],
+  ["BDCC Country","312 - Bermuda Dunes","Bermuda Dunes Country Club","42765 Adams St., Bermuda Dunes, CA 92203","760-345-2771"],
+  ["BDCC Fairway","312 - Bermuda Dunes","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["BDCC North","312 - Bermuda Dunes","Bermuda Dunes Country Club","42765 Adams St., Bermuda Dunes, CA 92203","760-345-2771"],
+  ["BDCC Oasis","312 - Bermuda Dunes","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["BDCC Prado","312 - Bermuda Dunes","Bermuda Dunes Country Club","42765 Adams St., Bermuda Dunes, CA 92203","760-345-2771"],
+  ["BDCC Vistas","312 - Bermuda Dunes","Bermuda Dunes Country Club","42765 Adams St., Bermuda Dunes, CA 92203","760-345-2771"],
+  ["Casas De Bermudas","312 - Bermuda Dunes","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Chelsea Estates","312 - Bermuda Dunes","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Laguna Seca","312 - Bermuda Dunes","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Montego Circle","312 - Bermuda Dunes","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Montego West","312 - Bermuda Dunes","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Saddleback","312 - Bermuda Dunes","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["The Greens","312 - Bermuda Dunes","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  // 313 - La Quinta S. of HWY 111
+  ["Althea","313 - La Quinta S. of HWY 111","Vine Property Group","80285 Via Velerosa #8300, La Quinta, CA 92253","760-771-8440"],
+  ["Carmela","313 - La Quinta S. of HWY 111","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Casitas Las Rosas","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Codorniz","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Coral Mountain Estates","313 - La Quinta S. of HWY 111","Vine Property Group","80285 Via Velerosa #8300, La Quinta, CA 92253","760-771-8440"],
+  ["Desert Cove","313 - La Quinta S. of HWY 111","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Duna La Quinta","313 - La Quinta S. of HWY 111","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Enclave Mountain Estates","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Griffin Ranch","313 - La Quinta S. of HWY 111","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Haciendas at La Quinta","313 - La Quinta S. of HWY 111","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Hidden Canyon","313 - La Quinta S. of HWY 111","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["LQCC Fairways","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["LQCC Golf Estates","313 - La Quinta S. of HWY 111","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["LQCC Villas of La Quinta","313 - La Quinta S. of HWY 111","La Quinta Country Club","77750 Ave 50, La Quinta, CA 92253","760-564-4151"],
+  ["La Quinta Fairways","313 - La Quinta S. of HWY 111","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["La Quinta Polo East","313 - La Quinta S. of HWY 111","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["La Quinta Tennis Villas","313 - La Quinta S. of HWY 111","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Laguna De La Paz","313 - La Quinta S. of HWY 111","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Lake La Quinta","313 - La Quinta S. of HWY 111","Gaffney Group Inc.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-327-0301"],
+  ["Legacy Villas","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Lions Gate","313 - La Quinta S. of HWY 111","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Los Estados","313 - La Quinta S. of HWY 111","Canyon Country Club Estados","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Mira Flores","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Mountain View CC","313 - La Quinta S. of HWY 111","Powerstone Property Mgt.","41995 Boardwalk Suite K, Palm Desert, CA 92211","760-469-4315"],
+  ["PGA Greg Norman","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["PGA Legends","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["PGA Nicklaus Private","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["PGA Nicklaus Tournament","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["PGA Palmer Private","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["PGA Stadium","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["PGA Weiskopf","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["PGA West Monterra","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["PGA West Signature","313 - La Quinta S. of HWY 111","PGA West Resident Association Inc.","54320 Southern Hill, La Quinta, CA 92253","760-771-1234"],
+  ["Painted Cove","313 - La Quinta S. of HWY 111","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Palmilla","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Palo Verde","313 - La Quinta S. of HWY 111","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5111"],
+  ["Parc La Quinta","313 - La Quinta S. of HWY 111","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Piazza Serena","313 - La Quinta S. of HWY 111","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Point Happy Estates","313 - La Quinta S. of HWY 111","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Puerta Azul","313 - La Quinta S. of HWY 111","Puerta Azul La Quinta","57325 Paseo Del Lago, La Quinta, CA 92253","760-564-3047"],
+  ["Rancho La Quinta CC","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Rancho Santana","313 - La Quinta S. of HWY 111","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Santa Rosa Cove","313 - La Quinta S. of HWY 111","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Talante","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["The Enclave","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-9918"],
+  ["The Hideaway","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["The Palms","313 - La Quinta S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["The Quarry","313 - La Quinta S. of HWY 111","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Tradition Golf Club","313 - La Quinta S. of HWY 111","Tradition Golf Club HOA","78505 Old Ave 52, La Quinta, CA 92253","760-564-8723"],
+  ["Trilogy","313 - La Quinta S. of HWY 111","Trilogy La Quinta Maintenance Assoc.","60750 Trilogy Parkway, La Quinta, CA 92253","760-777-6059"],
+  // 314 - Indio S. of HWY 111
+  ["Aldea at Jackson","314 - Indio S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Anastacia","314 - Indio S. of HWY 111","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Bella Vida","314 - Indio S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-9918"],
+  ["Bridge at Jefferson","314 - Indio S. of HWY 111","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Coronado Gardens","314 - Indio S. of HWY 111","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Desert Aire","314 - Indio S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Desert Gardens","314 - Indio S. of HWY 111","Desert Gardens HOA","83880 Ave 48, Indio, CA 92201","760-342-5840"],
+  ["Desert Grove","314 - Indio S. of HWY 111","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Desert River Estates","314 - Indio S. of HWY 111","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Desert Shores","314 - Indio S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["El Cid Estates","314 - Indio S. of HWY 111","Master Series at Madison","49579 Constitution Drive, Indio, CA 92201","760-863-3767"],
+  ["Estacio","314 - Indio S. of HWY 111","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Indian Palms","314 - Indio S. of HWY 111","Desert Management","42427 Rancho Mirage Lane, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Las Brisas I","314 - Indio S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Las Brisas II","314 - Indio S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Las Brisas North","314 - Indio S. of HWY 111","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Las Palmas Del La Quinta","314 - Indio S. of HWY 111","Las Palmas Del La Quinta","80000 Ave 48, Indio, CA 92201","760-347-1920"],
+  ["Madison Estates","314 - Indio S. of HWY 111","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Montage at Santa Rosa","314 - Indio S. of HWY 111","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Outdoor Resorts CC","314 - Indio S. of HWY 111","Outdoor Resorts Indio","80394 Ave 48, Indio, CA 92201","760-775-7255"],
+  ["Quail Lakes Racquet","314 - Indio S. of HWY 111","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Rancho Indio Estates","314 - Indio S. of HWY 111","Rancho Casitas HOA","46618 Madison St, Indio, CA 92201","760-347-9427"],
+  ["Santa Rosa Homes","314 - Indio S. of HWY 111","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Stonefield Estates","314 - Indio S. of HWY 111","Stonefield Estates HOA","46600 Washington St. #4, La Quinta, CA 92253","N/A"],
+  ["Summer Breeze","314 - Indio S. of HWY 111","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Sunny Side Estates","314 - Indio S. of HWY 111","Sunnyside Estates HOA","47800 Madison #232, Indio, CA 92201","760-347-4781"],
+  ["The Orchard","314 - Indio S. of HWY 111","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Trilogy Polo Club","314 - Indio S. of HWY 111","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  // 315 - Coachella
+  ["Bellissima","315 - Coachella","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Prado","315 - Coachella","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Somerset","315 - Coachella","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Sun Crest","315 - Coachella","Suncrest C.C. HOA","73450 Country Club Dr, Palm Desert, CA 92260","760-568-3409"],
+  // 320 - Thousand Palms
+  ["Ivey Ranch","320 - Thousand Palms","Jack Ivey Ranch HOA","74580 Varner Rd., Thousand Palms, CA 92276","760-343-0445"],
+  // 321 - Rancho Mirage
+  ["Artisan","321 - Rancho Mirage","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Bella Clancy","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Big Sioux","321 - Rancho Mirage","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","N/A"],
+  ["Blue Skies","321 - Rancho Mirage","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Casas de Seville","321 - Rancho Mirage","Casa De Seville","72605 CA-111 b1, Palm Desert, CA 92260","760-203-5830"],
+  ["Chalet Palms","321 - Rancho Mirage","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Cielo","321 - Rancho Mirage","Cielo Rancho Mirage HOA","21 Porto Cielo Ct, Rancho Mirage, CA 92270","N/A"],
+  ["Cielo Azul","321 - Rancho Mirage","Cielo Rancho Mirage HOA","21 Porto Cielo Ct, Rancho Mirage, CA 92270","N/A"],
+  ["Cielo Paradiso","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Cielo Vista","321 - Rancho Mirage","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Clancy Estates","321 - Rancho Mirage","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Clancy Lane","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Clancy Lane South","321 - Rancho Mirage","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Country Club Estates-468","321 - Rancho Mirage","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Cypress Pointe","321 - Rancho Mirage","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Davall Estates","321 - Rancho Mirage","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Del Webb RM","321 - Rancho Mirage","Del Webb Rancho Mirage","122 Claret Rd, Rancho Mirage, CA 92270","760-642-6861"],
+  ["Desert Braemar","321 - Rancho Mirage","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Desert Island","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Desert Village","321 - Rancho Mirage","Gold Coast Enterprises","34400 Date Palm Drive Suite A, Cathedral City, CA 92234","760-202-9880"],
+  ["Escala","321 - Rancho Mirage","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Lake Mirage Racquet Club","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Los Cocos","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Mission Hills Country Club","321 - Rancho Mirage","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Mission Hills East","321 - Rancho Mirage","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Mission Hills/Haciendas","321 - Rancho Mirage","Gold Coast Enterprises","34400 Date Palm Drive Suite A, Cathedral City, CA 92234","760-202-9880"],
+  ["Mission Pointe","321 - Rancho Mirage","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Mission Ranch","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Mission Shores","321 - Rancho Mirage","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Mission Wells","321 - Rancho Mirage","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Morningside Country","321 - Rancho Mirage","The Club at Morningside","39033 Morningside Dr., Rancho Mirage, CA 92270","760-324-1234"],
+  ["Presidential Estates","321 - Rancho Mirage","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Rancho Mirage C.C.","321 - Rancho Mirage","Rancho Mirage HOA","39500 Bob Hope Dr, Rancho Mirage, CA 92270","760-328-1444"],
+  ["Rancho Mirage Resort","321 - Rancho Mirage","Brentwood Colonies","4501 E Sunny Dunes Road #B, Palm Springs, CA 92264","760-778-5417"],
+  ["San Marino","321 - Rancho Mirage","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1210"],
+  ["Small Mountain","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["St. Augustine","321 - Rancho Mirage","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5111"],
+  ["Sterling Cove","321 - Rancho Mirage","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Sterling Estates","321 - Rancho Mirage","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Sunrise C.C.","321 - Rancho Mirage","Sunrise C.C. HOA","71601 Country Club, Rancho Mirage, CA 92270","760-321-2541"],
+  ["Tamarisk C.C.","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["Tamarisk Estates","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["Tamarisk Gardens","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["Tamarisk Heights","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["Tamarisk Rancho","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["Tamarisk Ridge","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["Tamarisk View Estate","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["Tamarisk Villas","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["Tamarisk West","321 - Rancho Mirage","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","N/A"],
+  ["The Colony","321 - Rancho Mirage","Avail Property Mgt.","51350 Desert Club Drive #4, Rancho Mirage, CA 92270","760-771-1655"],
+  ["The Colony - 2923","321 - Rancho Mirage","The Colony","70377 Gerald Ford Dr., Rancho Mirage, CA 92270","760-660-6619"],
+  ["The Springs C.C.","321 - Rancho Mirage","The Springs HOA","174 Yale Drive, Rancho Mirage, CA 92270","760-328-2131"],
+  ["Thunderbird C.C.","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Thunderbird Cove","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Thunderbird Estates","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Thunderbird Heights","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Thunderbird North","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Thunderbird Palms","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Thunderbird Palms East","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Thunderbird Terrace","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Thunderbird Villas","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Veneto","321 - Rancho Mirage","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Verlaine","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Versailles","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Victoria Falls","321 - Rancho Mirage","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Viento","321 - Rancho Mirage","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Villaggio On Sinatra","321 - Rancho Mirage","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Villas of Mirada","321 - Rancho Mirage","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Vista Mirage","321 - Rancho Mirage","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Waterford","321 - Rancho Mirage","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-771-5100"],
+  ["White Sun Estates","321 - Rancho Mirage","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Wilshire Palms","321 - Rancho Mirage","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  // 322 - Palm Desert North
+  ["Brava","322 - Palm Desert North","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Casablanca","322 - Palm Desert North","Gail Christiansin","N/A","760-834-1459"],
+  ["Chaparral C.C.","322 - Palm Desert North","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Chatham Court","322 - Palm Desert North","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Dolce","322 - Palm Desert North","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Hidden Palms","322 - Palm Desert North","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Hovley Court","322 - Palm Desert North","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Kaufman/Broad","322 - Palm Desert North","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Kingston Court","322 - Palm Desert North","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Lago De Palmas","322 - Palm Desert North","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Lantana","322 - Palm Desert North","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Merano","322 - Palm Desert North","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Montecito Homes","322 - Palm Desert North","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Monterey Country Club","322 - Palm Desert North","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Monterey Ridge","322 - Palm Desert North","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Monterey Sands","322 - Palm Desert North","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Palm Desert Greens","322 - Palm Desert North","Palm Desert Greens HOA","73750 Country Club, Palm Desert, CA 92260","760-568-4965"],
+  ["Palm Desert Mobile Estates","322 - Palm Desert North","Palm Desert Mobile Estates","43101 Portola Ave #163, Palm Desert, CA 92260","760-346-1508"],
+  ["Palmira","322 - Palm Desert North","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Park Palms","322 - Palm Desert North","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Paseo Vista","322 - Palm Desert North","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Portola Country Club","322 - Palm Desert North","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Portola Del Sol","322 - Palm Desert North","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Portola Palms","322 - Palm Desert North","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Portola Pointe","322 - Palm Desert North","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Portola Village","322 - Palm Desert North","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Sagewood","322 - Palm Desert North","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Silver Sands R.C.","322 - Palm Desert North","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Suncrest C.C.","322 - Palm Desert North","Suncrest C.C. HOA","73450 Country Club Dr, Palm Desert, CA 92260","760-346-5866"],
+  ["Sundance","322 - Palm Desert North","Sundance II Homeowners Assoc.","2901 N. Avenida Caballeros, Palm Springs, CA 92262","760-325-4786"],
+  ["Terracina","322 - Palm Desert North","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["The Boulders at Palm Desert","322 - Palm Desert North","Palm Desert Resorter Association","77760 Country Club Dr. A, Palm Desert, CA 92211","760-345-1954"],
+  ["The Glen","322 - Palm Desert North","Palm Desert Resorter Association","77760 Country Club Dr. A, Palm Desert, CA 92211","760-345-1954"],
+  ["The Hovely Collection","322 - Palm Desert North","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["The Retreat at Desert Willow","322 - Palm Desert North","The Retreat at Desert Willow","38200 Portola Ave, Palm Desert, CA 92211","760-422-9345"],
+  ["Valley Palms","322 - Palm Desert North","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Venezia","322 - Palm Desert North","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Villa Portofino","322 - Palm Desert North","Villa Portofino","4001 Via Portofino, Palm Desert, CA 92260","760-404-1888"],
+  ["Vista Palm Desert","322 - Palm Desert North","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  // 323 - Palm Desert South
+  ["Bighorn Golf Club","323 - Palm Desert South","Big Horn HOA","941 Andreas Canyon Drive, Palm Desert, CA 92260","760-341-5099"],
+  ["Casa Mia","323 - Palm Desert South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-8763"],
+  ["Corsican Villas","323 - Palm Desert South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Deep Canyon Tennis Club","323 - Palm Desert South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5111"],
+  ["El Paseo Village","323 - Palm Desert South","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Indian Creek Villas","323 - Palm Desert South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Indian Hills-880","323 - Palm Desert South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["International Lodge","323 - Palm Desert South","Palm Desert Resorter Association","77760 Country Club Dr. A, Palm Desert, CA 92211","760-345-1954"],
+  ["Ironwood Country Club","323 - Palm Desert South","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Kings Point","323 - Palm Desert South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Marrakesh C.C.","323 - Palm Desert South","Marrakesh Mgt.","47000 Marrakesh Dr, Palm Desert, CA 92260","760-568-2688"],
+  ["Montecito Condos","323 - Palm Desert South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Monterra","323 - Palm Desert South","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Mountain Shadows","323 - Palm Desert South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Mountain Villas","323 - Palm Desert South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Nueve Grande","323 - Palm Desert South","Palm Desert Resorter Association","77760 Country Club Dr. A, Palm Desert, CA 92211","760-345-1954"],
+  ["Palm Desert Tennis Club","323 - Palm Desert South","Palm Desert Tennis Club","48240 Racquet Ln, Palm Desert, CA 92211","760-346-5683"],
+  ["Ryway Cottages","323 - Palm Desert South","Palm Desert Tennis Club","48240 Racquet Ln, Palm Desert, CA 92260","760-346-5683"],
+  ["Sand & Shadows","323 - Palm Desert South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Sandpiper Palm Desert","323 - Palm Desert South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Sandroc","323 - Palm Desert South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Shadow Mtn Fairway Cottages","323 - Palm Desert South","Shadow Mountain HOA","45750 San Luis Rey, Palm Desert, CA 92260","760-346-6123"],
+  ["Shadow Mtn Resort","323 - Palm Desert South","Shadow Mountain HOA","45750 San Luis Rey, Palm Desert, CA 92260","760-346-6123"],
+  ["Shadowcliff Colony","323 - Palm Desert South","Shadow Mountain HOA","45750 San Luis Rey, Palm Desert, CA 92260","760-346-6123"],
+  ["Shar","323 - Palm Desert South","Palm Desert Resorter Association","77760 Country Club Dr. A, Palm Desert, CA 92211","760-345-1954"],
+  ["Silver Spur Ranch","323 - Palm Desert South","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Sommerset South Palm Desert","323 - Palm Desert South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Stone Eagle","323 - Palm Desert South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Summit","323 - Palm Desert South","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["The Reserve","323 - Palm Desert South","The Reserve Club","74001 Reserve Dr., Indian Wells, CA 92210","760-568-5599"],
+  ["Villa Paseo","323 - Palm Desert South","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92260","760-346-9000"],
+  ["Village Greens","323 - Palm Desert South","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Vista Paseo","323 - Palm Desert South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  // 324 - Palm Desert East
+  ["Avondale C.C.","324 - Palm Desert East","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Belmonte Estates","324 - Palm Desert East","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Desert Breezes","324 - Palm Desert East","Desert Breeze Resort","77955 Cll Las Brisas, Palm Desert, CA 92211","760-345-2637"],
+  ["Desert Falls C.C.","324 - Palm Desert East","Desert Falls Property Mgt.","99 Desert Falls Drive East, Palm Desert, CA 92211","760-345-2637"],
+  ["Desert Falls Estates","324 - Palm Desert East","Desert Falls Property Mgt.","99 Desert Falls Drive East, Palm Desert, CA 92211","760-341-6016"],
+  ["Desert Falls The Links","324 - Palm Desert East","Desert Falls Property Mgt.","99 Desert Falls Drive East, Palm Desert, CA 92211","760-341-6016"],
+  ["Desert Rose","324 - Palm Desert East","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Emerald Isle","324 - Palm Desert East","Palm Desert Resorter Association","77760 Country Club Dr. A, Palm Desert, CA 92211","760-345-1954"],
+  ["Golden Sun Estates","324 - Palm Desert East","Golden Sun Estates","40555 Washington St., Palm Desert, CA 92211","760-345-5661"],
+  ["Indian Ridge","324 - Palm Desert East","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Indian Wells Village","324 - Palm Desert East","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Mountain View Falls","324 - Palm Desert East","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Palm Desert C.C.","324 - Palm Desert East","Palm Desert C.C. HOA","77800 California Dr, Palm Desert, CA 92211","760-345-2331"],
+  ["Palm Lakes","324 - Palm Desert East","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Palm Valley C.C.","324 - Palm Desert East","Associa Desert Resort Mgt.","39205 Palm Valley Drive, Palm Desert, CA 92211","760-345-2737"],
+  ["Regency Estates","324 - Palm Desert East","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Regency Palms","324 - Palm Desert East","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["River Estates","324 - Palm Desert East","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Sandcastle Homes","324 - Palm Desert East","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Spanish Walk","324 - Palm Desert East","Prime Associations Services","77564 A Country Club Dr. Ste 219, Palm Desert, CA 92211","760-360-5580"],
+  ["Sunterrace","324 - Palm Desert East","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["The Lakes Country Club","324 - Palm Desert East","The Lakes HOA","161 Old Ranch Rd, Palm Desert, CA 92211","760-568-4321"],
+  ["Tierra Vista","324 - Palm Desert East","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Waring Place","324 - Palm Desert East","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Whitehawk","324 - Palm Desert East","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Woodhaven Country Club","324 - Palm Desert East","Associa Desert Resort Mgt.","42635 Melanie Place, Rancho Mirage, CA 92270","760-862-1202"],
+  // 325 - Indian Wells
+  ["Casa Dorado","325 - Indian Wells","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Casa Rosada","325 - Indian Wells","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Colony Cove","325 - Indian Wells","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Cove at Indian Wells","325 - Indian Wells","Cove at Indian Wells HOA","74995 N. Cove Dr., Indian Wells, CA 92210","760-340-3039"],
+  ["Desert Horizons C.C.","325 - Indian Wells","Powerstone Property Mgt.","41995 Boardwalk Suite K, Palm Desert, CA 92211","760-469-4315"],
+  ["Dorado Villas","325 - Indian Wells","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["El Dorado Country Club","325 - Indian Wells","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92211","760-568-0349"],
+  ["Indian Wells Country Club","325 - Indian Wells","Indian Wells Country Club","46000 Club Dr., Indian Wells, CA 92210","760-345-2561"],
+  ["Indian Wells Village","325 - Indian Wells","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["La Rocca","325 - Indian Wells","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Los Lagos","325 - Indian Wells","Avail Property Mgt.","51350 Desert Club Drive #4, La Quinta, CA 92253","760-771-9546"],
+  ["Monte Sereno Estates","325 - Indian Wells","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Montelena","325 - Indian Wells","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Painted Cove","325 - Indian Wells","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Sundance","325 - Indian Wells","Sundance II Homeowners Association","2901 N. Avenida Caballeros, Palm Springs, CA 92262","760-325-4786"],
+  ["The Reserve","325 - Indian Wells","The Reserve Club","74001 Reserve Dr., Indian Wells, CA 92210","760-568-5599"],
+  ["Toscana C.C.","325 - Indian Wells","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Vintage Country Club","325 - Indian Wells","Vintage Club HOA","75001 Vintage Dr W, Indian Wells, CA 92210","760-862-2198"],
+  // 326 - Mtn Center / Pinyon Pines
+  ["Chappel Ranch","326 - Mtn Center / Pinyon Pines","Palm Desert Resorter Association","77760 Country Club Dr. A, Palm Desert, CA 92211","N/A"],
+  // 331 - Palm Springs North
+  ["43 @ Racquet Club","331 - Palm Springs North","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["64@theRiv","331 - Palm Springs North","64 @ The River HOA","2001 N. Indian Canyon Dr., Palm Springs, CA 92262","N/A"],
+  ["Club Condominiums","331 - Palm Springs North","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Icon","331 - Palm Springs North","Icon Palm Springs","2705 Majestic Way, Palm Springs, CA 92262","760-285-5912"],
+  ["Mountain Gate","331 - Palm Springs North","West Association Mgt.","5225 Canyon Brest Dr. Ste 71-297, Riverside, CA 92507","760-269-4143"],
+  ["Mountain Shadow North","331 - Palm Springs North","Mountain Shadows Homeowners","2000 Golf Club Dr., Indian Wells, CA 92210","760-328-1076"],
+  ["Murano","331 - Palm Springs North","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["PS Colony","331 - Palm Springs North","Palm Springs Mgt Group","P.O. Box 2242, Palm Springs, CA 92263","760-325-9503"],
+  ["Palermo","331 - Palm Springs North","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Palm Sp Villas I","331 - Palm Springs North","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Palm Sp Villas II","331 - Palm Springs North","Professional Community Mgt.","11860 Pierce Street #100, Riverside, CA 92505","951-359-2840"],
+  ["Palm Springs C.C.","331 - Palm Springs North","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Park Imperial North","331 - Palm Springs North","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Racquet Club Garden Villas","331 - Palm Springs North","Prescott Mgt","5966 La Place Court Suite 170, Carlsbad, CA 92008","760-634-4700"],
+  ["Riviera Gardens","331 - Palm Springs North","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Snow Creek","331 - Palm Springs North","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Sun Canyon Estates","331 - Palm Springs North","Santiago Sun Canyon Estates","22840 Sterling Ave., Palm Springs, CA 92262","760-325-4262"],
+  ["Sunrise Palms","331 - Palm Springs North","Sunrise Palms","3000 N. Hermosa Dr., Palm Springs, CA 92262","760-327-7287"],
+  ["Victoria Park/Vista Norte","331 - Palm Springs North","Victoria Park","2744 N. Via Miraleste, Palm Springs, CA 92262","760-323-8272"],
+  // 332 - Palm Springs Central
+  ["Biarritz","332 - Palm Springs Central","Biarritz Condos","464 S. Calle Encilia, Palm Springs, CA 92262","N/A"],
+  ["Caballeros Estates","332 - Palm Springs Central","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Casa De Oro","332 - Palm Springs Central","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Casa Verde","332 - Palm Springs Central","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Casitas Arenas","332 - Palm Springs Central","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Colony El Mirador","332 - Palm Springs Central","Palm Springs Mgt Group","P.O. Box 2242, Palm Springs, CA 92263","760-325-9503"],
+  ["Desert Arches","332 - Palm Springs Central","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Desert Sun Resort","332 - Palm Springs Central","Desert Sun Resort","1533 N. Chaparral Rd., Palm Springs, CA 92262","760-322-5800"],
+  ["El Rancho Vista Estates","332 - Palm Springs Central","Rancho Vista Estates HOA","N/A, Rancho Mirage, CA 92270","N/A"],
+  ["Escena","332 - Palm Springs Central","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Hermosa Villas","332 - Palm Springs Central","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["La Palme","332 - Palm Springs Central","La Palme","401 S. El Cielo Rd, Palm Springs, CA 92262","760-422-5131"],
+  ["Plaza Villas","332 - Palm Springs Central","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Rancho El Mirador","332 - Palm Springs Central","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Rose Garden","332 - Palm Springs Central","Rose Garden","1293 Tiffany Circle, Palm Springs, CA 92262","N/A"],
+  ["Sagewood","332 - Palm Springs Central","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["St. Tropez Villas","332 - Palm Springs Central","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Sunkist Villas","332 - Palm Springs Central","Sunkist Villas","457 W. Arenas Rd., Palm Springs, CA 92262","N/A"],
+  ["Sunrise Alejo","332 - Palm Springs Central","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Sunrise Oasis","332 - Palm Springs Central","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Sunrise Racquet Club","332 - Palm Springs Central","Gaffney Group Inc.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-327-0301"],
+  ["Tennis Club","332 - Palm Springs Central","43 @ Racquet Club HOA","1111 E. Tahquitz Canyon Way #120, Palm Springs, CA 92262","760-320-5033"],
+  ["TennisClub-400 West","332 - Palm Springs Central","43 @ Racquet Club HOA","1111 E. Tahquitz Canyon Way #120, Palm Springs, CA 92262","760-320-5033"],
+  ["TennisClub-500 West","332 - Palm Springs Central","43 @ Racquet Club HOA","1111 E. Tahquitz Canyon Way #120, Palm Springs, CA 92262","760-320-5033"],
+  ["TennisClub-Silver Palms Villas","332 - Palm Springs Central","43 @ Racquet Club HOA","1111 E. Tahquitz Canyon Way #120, Palm Springs, CA 92262","760-320-5033"],
+  ["Terra Vita","332 - Palm Springs Central","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["The Morrison","332 - Palm Springs Central","Millennium Community Mgt.","75145 St. Charles Place Suite 1, Palm Desert, CA 92211","760-834-8948"],
+  ["Villa Caballeros","332 - Palm Springs Central","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Village Racquet Club","332 - Palm Springs Central","Village Racquet Club","900 Ramon Rd, Palm Springs, CA 92262","760-325-3884"],
+  ["Villorrio","332 - Palm Springs Central","Palm Springs Mgt Group","P.O. Box 2242, Palm Springs, CA 92263","760-325-9503"],
+  // 334 - Palm Springs South
+  ["Alta","334 - Palm Springs South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Andreas Hills","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Bella Monte","334 - Palm Springs South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Biltmore","334 - Palm Springs South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Biltmore Colony","334 - Palm Springs South","Palm Springs Mgt Group","P.O. Box 2242, Palm Springs, CA 92263","760-325-9503"],
+  ["Canyon C.C. Colony","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Canyon C.C. Estados","334 - Palm Springs South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Canyon Colony West","334 - Palm Springs South","Lampley Property Mgt.","477 E Mariposa Drive, Palm Springs, CA 92264","714-325-7271"],
+  ["Canyon Estates","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Canyon Granada","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Canyon Heights","334 - Palm Springs South","J&W Mgt.","73320 El Paseo, Palm Desert, CA 92260","760-568-0349"],
+  ["Canyon Sands","334 - Palm Springs South","Desert Mgt.","2269 Miraleste Circle West, Palm Springs, CA 92264","760-328-5219"],
+  ["Canyon South 1","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Canyon South 2","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Canyon South 3","334 - Palm Springs South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Canyon View Estates","334 - Palm Springs South","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Canyon Villas","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Canyon West Estates","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Casa Canyon","334 - Palm Springs South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-778-6846"],
+  ["Casa Sonora","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Cathedral Canyon CC","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Country Club Estates-468","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Dakota","334 - Palm Springs South","Dakota Palm Springs","1501 S. Beladro Rd., Palm Springs, CA 92264","N/A"],
+  ["Deepwell","334 - Palm Springs South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Deepwell Ranch","334 - Palm Springs South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Desert Skies","334 - Palm Springs South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Diplomat","334 - Palm Springs South","The Diplomat","2424 E. Palm Canyon Dr., Palm Springs, CA 92264","N/A"],
+  ["El Dorado Palm Springs","334 - Palm Springs South","El Dorado Palm Estates","6000 E. Palm Canyon Dr., Palm Springs, CA 92264","760-328-2815"],
+  ["Esprit","334 - Palm Springs South","Maryellen Hill & Associates","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-320-5033"],
+  ["Estados South","334 - Palm Springs South","Gold Coast Enterprises","34400 Date Palm Drive Suite A, Cathedral City, CA 92234","760-202-9880"],
+  ["Estancias at South Canyon","334 - Palm Springs South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Fairways","334 - Palm Springs South","The Fairways 831","1600 Crossley Rd., Palm Springs, CA 92264","N/A"],
+  ["Firebird","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Garden Villas East","334 - Palm Springs South","Albert Mgt.","41865 Boardwalk Ste 101, Palm Desert, CA 92211","760-346-9000"],
+  ["Horizon Mh Village","334 - Palm Springs South","Horizon Mobile Village and RV Park","3575 E. Palm Canyon Dr, Palm Springs, CA 92264","760-328-3730"],
+  ["Kings Point","334 - Palm Springs South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Luminaire","334 - Palm Springs South","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Mesquite","334 - Palm Springs South","Mesquite Golf and Country Club","2700 E. Mesquite Ave, Palm Springs, CA 92262","760-992-5158"],
+  ["Mesquite Country Club","334 - Palm Springs South","Mesquite Golf and Country Club","2700 E. Mesquite Ave, Palm Springs, CA 92262","760-992-5158"],
+  ["Monte Sereno","334 - Palm Springs South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-9918"],
+  ["Mountain Shadows","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Oasis Resort Condos","334 - Palm Springs South","The Oasis Resort","4190 E. Palm Canyon Dr, Palm Springs, CA 92264","760-324-3422"],
+  ["Ocotillo Lodge","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Palm Canyon Mobile Club","334 - Palm Springs South","Palm Canyon Mobile Club","18805 Palm Canyon Dr, Palm Springs, CA 92264","760-327-2062"],
+  ["Palm Canyon Terrace","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Palm Canyon Villas","334 - Palm Springs South","Palm Canyon Villas","5205 E. Waverly Dr, Palm Springs, CA 92264","760-324-4835"],
+  ["Palm Springs Golf","334 - Palm Springs South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Palm Springs View Estates","334 - Palm Springs South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Palm Villas","334 - Palm Springs South","Gaffney Group Inc.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-327-0301"],
+  ["Park Imperial South","334 - Palm Springs South","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Parkview Mobile Estates","334 - Palm Springs South","Parkview Mobile Estates","393 W. Mesquite Ave, Palm Springs, CA 92264","760-325-5529"],
+  ["Pintura","334 - Palm Springs South","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Ramon Mobile Park","334 - Palm Springs South","Ramon Mobile Home and RV Park","7661 E. Ramon Rd, Palm Springs, CA 92264","760-327-5417"],
+  ["Ramona Villas","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Rancho La Paz","334 - Palm Springs South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["RimcRest","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92264","760-323-7475"],
+  ["Royal Hawaiian","334 - Palm Springs South","Royal Hawaiian Estates","1774 S. Palm Canyon Dr., Palm Springs, CA 92264","N/A"],
+  ["Saddlerock Estates","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Saddlerock Gardens","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Sandcliff","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Sandstone Villas","334 - Palm Springs South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Seven Lakes C.C.","334 - Palm Springs South","Seven Lakes HOA","1 Desert Lakes Dr, Palm Springs, CA 92264","760-328-2695"],
+  ["Smoketree Racquet Club","334 - Palm Springs South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Southridge","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Summerset Springs","334 - Palm Springs South","Powerstone Property Mgt.","41995 Boardwalk Suite K, Palm Desert, CA 92211","760-469-4315"],
+  ["Sunflower","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Sunrise East","334 - Palm Springs South","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Sunrise Villas","334 - Palm Springs South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Sunshine Villa","334 - Palm Springs South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Tahquitz Creek Golf Resort","334 - Palm Springs South","Tahquitz Creek Golf Resort","1885 Golf Club Dr, Palm Springs, CA 92264","760-328-1005"],
+  ["Tahquitz Creek Villas","334 - Palm Springs South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["The Pointe","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["The Villa Boutique","334 - Palm Springs South","Villa Boutique Apartment Homes","1700 S. Araby Dr., Palm Springs, CA 92264","760-416-0220"],
+  ["Toluca Palms","334 - Palm Springs South","Toluca Palms","1469 Palm Tree Dr, Palm Springs, CA 92264","N/A"],
+  ["Twin Palms","334 - Palm Springs South","Twin Palms","1145 E. Via Colusa, Palm Springs, CA 92264","N/A"],
+  ["Versailles","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Villa Riviera","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Villa Roma","334 - Palm Springs South","Gaffney Group Inc.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Villas De Las Flores","334 - Palm Springs South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Vista Canyon","334 - Palm Springs South","Gaffney Group Inc.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-327-0301"],
+  ["Waverly Park","334 - Palm Springs South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  // 335 - Cathedral City North
+  ["Alicante","335 - Cathedral City North","Alicante","140 S. Palm Canyon Dr., Palm Springs, CA 92262","N/A"],
+  ["Campanile","335 - Cathedral City North","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Cathedral Springs","335 - Cathedral City North","Community Assoc. Financial Svcs","1111 Tahquitz Canyon Way #103, Palm Springs, CA 92262","760-323-7475"],
+  ["Cimarron Cove","335 - Cathedral City North","Cimarron Cove","1081 N. Palm Canyon Dr., Palm Springs, CA 92262","760-203-5830"],
+  ["Desert Princess","335 - Cathedral City North","Desert Princess HOA","28211 Desert Princess Drive, Cathedral City, CA 92234","760-322-1907"],
+  ["Desert Princess (SFR)","335 - Cathedral City North","Desert Princess HOA","28211 Desert Princess Drive, Cathedral City, CA 92234","760-322-1907"],
+  ["Lantana at Cimarron","335 - Cathedral City North","Lantana Resort Condominiums","30310 Regent Ln, Cathedral City, CA 92234","760-299-0662"],
+  ["Lower Outpost","335 - Cathedral City North","Lower Outpost","1081 N. Palm Canyon Dr., Palm Springs, CA 92262","760-203-5830"],
+  ["Shadow Crest","335 - Cathedral City North","Gaffney Group Inc.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-327-0301"],
+  // 336 - Cathedral City South
+  ["Aldea","336 - Cathedral City South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Aldea Vistas","336 - Cathedral City South","Desert Mgt.","42427 Rancho Mirage Ln, Rancho Mirage, CA 92270","760-862-1202"],
+  ["Caliente Sands Mobile","336 - Cathedral City South","Caliente Sands","351000 Date Palm Dr, Cathedral City, CA 92234","760-328-5814"],
+  ["Candlewood Villas I","336 - Cathedral City South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Canyon Shores","336 - Cathedral City South","Canyon Shores HOA","35200 Cathedral Canyon Dr, Cathedral City, CA 92234","760-328-0032"],
+  ["Cathedral Canyon CC","336 - Cathedral City South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9300"],
+  ["Cathedral Villas","336 - Cathedral City South","Cathedral Villas HOA","32200 Cathedral Canyon Dr, Cathedral City, CA 92234","N/A"],
+  ["Date Palm Estates","336 - Cathedral City South","Sunrise Palms","3000 N. Hermosa Dr., Palm Springs, CA 92234","N/A"],
+  ["District East","336 - Cathedral City South","District East","67770 Jones Rd, Cathedral City, CA 92234","760-537-3026"],
+  ["El Dorado Mobile C.C.","336 - Cathedral City South","El Dorado Palm Estates","6000 E. Palm Canyon Dr, Palm Springs, CA 92264","N/A"],
+  ["Jardin De Leon","336 - Cathedral City South","Desert Mgt.","400 So. Farrell Dr. Suite B-202, Palm Springs, CA 92262","760-325-4257"],
+  ["Rancho Paloma","336 - Cathedral City South","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Rancho Village","336 - Cathedral City South","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Rio Del Sol","336 - Cathedral City South","WhiteStar Mgt.","72000 Magnesia Falls Dr #3, Rancho Mirage, CA 92270","760-773-0123"],
+  ["Sage & Sands","336 - Cathedral City South","Canyon Sands HOA","2269 Mira Monte Cir, Palm Springs, CA 92264","760-328-5219"],
+  ["Serenity Cove","336 - Cathedral City South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  ["Sungate","336 - Cathedral City South","Sungate Country Owners Association","69333 E. Palm Canyon Dr, Cathedral City, CA 92234","760-321-2230"],
+  ["The Campus","336 - Cathedral City South","The Mgt. Trust","39755 Berkey Drive, Palm Desert, CA 92211","760-776-5100"],
+  // 340 - Desert Hot Springs
+  ["Agua Dulce","340 - Desert Hot Springs","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-8500"],
+  ["Campanero Pointe","340 - Desert Hot Springs","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Desert Crest CC","340 - Desert Hot Springs","Desert Crest HOA","69400 S Country Club, Desert Hot Springs, CA 92240","760-329-0706"],
+  ["Desert Willow","340 - Desert Hot Springs","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Eagle Point","340 - Desert Hot Springs","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-435-9500"],
+  ["Hidden Springs","340 - Desert Hot Springs","Hidden Springs","15500 Bubbling Wells Rd., Desert Hot Springs, CA 92240","N/A"],
+  ["Paradise Springs","340 - Desert Hot Springs","Euclid Mgt. Company","77564 Country Club Drive, Palm Desert, CA 92211","760-779-8231"],
+  ["Rancho Royale","340 - Desert Hot Springs","Deepwell Ranch HOA","900 E Deepwell Rd., Palm Springs, CA 92264","N/A"],
+  ["Skyborne","340 - Desert Hot Springs","Prime Associations Services","77564 A Country Club Dr. Ste 219, Palm Desert, CA 92211","760-360-5588"],
+  ["Vista Montana","340 - Desert Hot Springs","Personalized Property Mgt.","68950 Adelina Rd, Cathedral City, CA 92234","760-325-9500"],
+  ["Vista Palms","340 - Desert Hot Springs","Sunrise Palms","3000 N. Hermosa Dr., Palm Springs, CA 92262","760-327-7287"],
+  // 341 - Mission Lakes
+  ["Mission Lakes","341 - Mission Lakes","Mission Lakes Country Club","8484 Clubhouse Blvd #1100, Desert Hot Springs, CA 92240","760-329-6481"],
+  ["Mountain View West","341 - Mission Lakes","West Association Mgt.","5225 Canyon Brest Dr. Ste 71-297, Riverside, CA 92507","760-269-4143"],
+  // 381 - Salton Sea / Imperial County
+  ["Desert Shores","381 - Salton Sea / Imperial County","Associa Desert Resort Mgt.","42635 Melanie Place, Palm Desert, CA 92211","760-346-1161"],
+  ["Vista Del Mar","381 - Salton Sea / Imperial County","Vista Del Mar Estates","290 Beach Club Dr, Thermal, CA 92274","760-394-4477"],
+];
+
+// Unique area list from data
+const AREA_LABELS = [...new Set(DATA.map(r => r[1]))].sort((a,b) => {
+  const na = parseInt(a); const nb = parseInt(b);
+  return na - nb;
+});
+
+let query = "";
+let activeArea = "All";
+let sortCol = 0;
+let sortDir = 1;
+
+function getFiltered() {
+  const q = query.toLowerCase();
+  return DATA.filter(r => {
+    const matchArea = activeArea === "All" || r[1] === activeArea;
+    const matchQ = !q || r.some(cell => cell.toLowerCase().includes(q));
+    return matchArea && matchQ;
+  }).sort((a, b) => {
+    const av = a[sortCol].toLowerCase();
+    const bv = b[sortCol].toLowerCase();
+    return av < bv ? -sortDir : av > bv ? sortDir : 0;
+  });
+}
+
+function render() {
+  const filtered = getFiltered();
+  document.getElementById("stats").textContent = `Showing ${filtered.length} of ${DATA.length} subdivisions`;
+
+  const cols = ["Subdivision", "Area", "Management Co.", "Address", "Phone"];
+  const wrap = document.getElementById("table-wrap");
+
+  if (!filtered.length) {
+    wrap.innerHTML = `<div class="no-results">No results match your search. Try a different term or clear filters.</div>`;
+    return;
+  }
+
+  const thead = cols.map((c, i) => {
+    const sorted = sortCol === i;
+    const icon = sorted ? (sortDir === 1 ? "↑" : "↓") : "↕";
+    return `<th class="${sorted?'sorted':''}" onclick="setSort(${i})">${c} <span class="sort-icon">${icon}</span></th>`;
+  }).join("");
+
+  const tbody = filtered.map(r => {
+    const phone = r[4] === "N/A" ? `<span class="na-tag">N/A</span>` : `<a href="tel:${r[4].replace(/\D/g,'')}">${r[4]}</a>`;
+    return `<tr>
+      <td class="td-subdivision">${r[0]}</td>
+      <td class="td-area"><span class="area-badge">${r[1]}</span></td>
+      <td class="td-mgmt">${r[2]}</td>
+      <td style="font-size:12px;color:var(--text-secondary)">${r[3]}</td>
+      <td class="td-phone">${phone}</td>
+    </tr>`;
+  }).join("");
+
+  wrap.innerHTML = `<table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>`;
+}
+
+function buildFilters() {
+  const row = document.getElementById("filters");
+  const all = ["All", ...AREA_LABELS];
+  row.innerHTML = all.map(a => {
+    const label = a === "All" ? "All" : a.split(" - ")[1] || a;
+    return `<span class="pill${a===activeArea?' active':''}" data-area="${a}" title="${a}">${label}</span>`;
+  }).join("");
+  row.querySelectorAll(".pill").forEach(p => p.addEventListener("click", () => {
+    activeArea = p.dataset.area; buildFilters(); render();
+  }));
+}
+
+function setSort(col) {
+  if (sortCol === col) sortDir = -sortDir;
+  else { sortCol = col; sortDir = 1; }
+  render();
+}
+
+document.getElementById("search").addEventListener("input", e => { query = e.target.value; render(); });
+buildFilters();
+render();
+</script>
+</body>
+</html>
