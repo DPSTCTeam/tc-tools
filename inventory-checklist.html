@@ -133,6 +133,7 @@
     .field-group input, .field-group select, .room-notes, .sig-block input { border: none; background: none; padding: 0; font-size: 13px; }
     .prop-card, .room-section, .sig-section { border: 1px solid #ccc; }
     .photo-upload-btn input { display: none; }
+    .print-hide { display: none !important; }
   }
 
   @media (max-width: 600px) {
@@ -191,7 +192,7 @@
 
   <!-- Action bar -->
   <div class="action-bar">
-    <button class="btn-primary" onclick="window.print()">🖨️ Print / Save PDF</button>
+    <button class="btn-primary" onclick="smartPrint()">🖨️ Print / Save PDF</button>
     <button class="btn-secondary" onclick="resetAll()">Clear all</button>
     <div class="summary-pills">
       <span class="summary-pill pill-included" id="count-inc">✓ 0 Included</span>
@@ -369,6 +370,34 @@ function addCustomItem(roomId) {
   if (!state[roomId].customItems) state[roomId].customItems = [];
   state[roomId].customItems.push(name.trim());
   renderRoom(roomId);
+}
+
+function smartPrint() {
+  // Tag items to hide: those with no status (unclicked) or status = 'na'
+  const allItems = document.querySelectorAll(".item-row");
+  allItems.forEach(row => {
+    const isMarked = row.classList.contains("included") || row.classList.contains("excluded");
+    if (!isMarked) {
+      row.classList.add("print-hide");
+    }
+  });
+
+  // Hide entire room sections where nothing is included or excluded
+  document.querySelectorAll(".room-section").forEach(section => {
+    const visibleItems = section.querySelectorAll(".item-row.included, .item-row.excluded");
+    const hasNotes = section.querySelector(".room-notes")?.value?.trim();
+    const hasPhoto = section.querySelector(".photo-preview");
+    if (!visibleItems.length && !hasNotes && !hasPhoto) {
+      section.classList.add("print-hide");
+    }
+  });
+
+  window.print();
+
+  // Clean up after print dialog closes
+  setTimeout(() => {
+    document.querySelectorAll(".print-hide").forEach(el => el.classList.remove("print-hide"));
+  }, 1000);
 }
 
 function buildAll() {
