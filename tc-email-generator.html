@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TC Email Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0f0f0f;
+    --white: #fafaf8;
+    --gray-50: #f5f5f3;
+    --gray-100: #e8e8e5;
+    --gray-200: #d0d0cc;
+    --gray-400: #999993;
+    --gray-600: #606059;
+    --accent: #1c5fa8;
+    --accent-light: #e8f0fb;
+    --danger: #c0392b;
+    --success: #1a6b3c;
+    --radius: 6px;
+    --radius-lg: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--white);
+    color: var(--black);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  .topbar {
+    border-bottom: 1px solid var(--gray-100);
+    padding: 16px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--white);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .topbar-title {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--black);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .topbar-sub {
+    font-size: 12px;
+    color: var(--gray-400);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  .api-section {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius-lg);
+    padding: 20px 24px;
+    margin-bottom: 32px;
+  }
+
+  .api-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .api-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-400);
+    font-family: 'DM Mono', monospace;
+    white-space: nowrap;
+  }
+
+  .api-input {
+    flex: 1;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 9px 12px;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--black);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .api-input:focus { border-color: var(--accent); }
+  .api-input::placeholder { color: var(--gray-400); }
+
+  .api-save-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    padding: 9px 16px;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    background: var(--white);
+    color: var(--gray-600);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+  .api-save-btn:hover { border-color: var(--black); color: var(--black); }
+  .api-save-btn.saved { border-color: var(--success); color: var(--success); }
+
+  .api-note {
+    font-size: 11px;
+    color: var(--gray-400);
+    margin-top: 10px;
+    font-family: 'DM Mono', monospace;
+    line-height: 1.5;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-400);
+    font-family: 'DM Mono', monospace;
+    margin-bottom: 12px;
+  }
+
+  .drop-zone {
+    border: 1.5px dashed var(--gray-200);
+    border-radius: var(--radius-lg);
+    padding: 32px 24px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s;
+    background: var(--white);
+    margin-bottom: 12px;
+  }
+  .drop-zone:hover { border-color: var(--gray-400); background: var(--gray-50); }
+  .drop-zone.over { border-color: var(--accent); background: var(--accent-light); }
+  .drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+  .drop-arrow {
+    width: 32px;
+    height: 32px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+    font-size: 14px;
+    color: var(--gray-400);
+  }
+
+  .drop-label { font-size: 14px; font-weight: 500; color: var(--black); }
+  .drop-sub { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+
+  .doc-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+
+  .doc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--white);
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    padding: 9px 12px;
+  }
+
+  .doc-num {
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--gray-400);
+    min-width: 18px;
+    text-align: center;
+  }
+
+  .move-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 13px;
+    padding: 0 1px;
+    line-height: 1;
+    transition: color 0.1s;
+  }
+  .move-btn:hover { color: var(--black); }
+  .move-btn:disabled { opacity: 0.2; cursor: default; }
+
+  .doc-name {
+    flex: 1;
+    font-size: 13px;
+    color: var(--black);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'DM Mono', monospace;
+  }
+
+  .doc-type-select {
+    font-size: 12px;
+    font-family: 'DM Sans', sans-serif;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    padding: 5px 8px;
+    background: var(--gray-50);
+    color: var(--black);
+    cursor: pointer;
+    outline: none;
+    max-width: 240px;
+  }
+  .doc-type-select:focus { border-color: var(--accent); }
+
+  .doc-remove {
+    cursor: pointer;
+    color: var(--gray-200);
+    font-size: 18px;
+    line-height: 1;
+    transition: color 0.1s;
+    padding: 0 2px;
+    flex-shrink: 0;
+  }
+  .doc-remove:hover { color: var(--danger); }
+
+  .order-note {
+    font-size: 12px;
+    color: var(--gray-400);
+    padding: 10px 14px;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    border-left: 2px solid var(--gray-200);
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .generate-btn {
+    display: block;
+    width: 100%;
+    background: var(--black);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    transition: opacity 0.15s;
+    margin-top: 8px;
+  }
+  .generate-btn:hover { opacity: 0.85; }
+  .generate-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .status {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--gray-400);
+    text-align: center;
+    margin-top: 12px;
+    min-height: 18px;
+  }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--gray-100);
+    margin: 36px 0 28px;
+  }
+
+  .output-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .email-card {
+    background: var(--white);
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+    font-size: 14px;
+    color: var(--black);
+    line-height: 1.85;
+    white-space: normal;
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .action-row { display: flex; gap: 8px; margin-top: 14px; }
+
+  .btn-action {
+    flex: 1;
+    background: var(--white);
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    padding: 10px;
+    font-size: 13px;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    color: var(--gray-600);
+    transition: all 0.12s;
+  }
+  .btn-action:hover { border-color: var(--gray-400); color: var(--black); }
+  .btn-action.primary { background: var(--black); color: var(--white); border-color: var(--black); }
+  .btn-action.primary:hover { opacity: 0.85; }
+
+  .error-msg {
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--danger);
+    text-align: center;
+    margin-top: 12px;
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-title">TC Email Generator</span>
+  <span class="topbar-sub">C.A.R. Forms · California RE</span>
+</div>
+
+<div class="container">
+
+  <div class="api-section">
+    <div class="api-row">
+      <span class="api-label">API Key</span>
+      <input type="password" class="api-input" id="apiKey" placeholder="sk-ant-api03-..." autocomplete="off" />
+      <button class="api-save-btn" id="saveKeyBtn">Save</button>
+    </div>
+    <div class="api-note">Your key is saved to your browser only — never sent anywhere except Anthropic's API. Grab yours at console.anthropic.com → API Keys.</div>
+  </div>
+
+  <div class="section-label">Contract Documents</div>
+
+  <div class="drop-zone" id="dropzone">
+    <input type="file" id="fileInput" accept=".pdf" multiple />
+    <div class="drop-arrow">↑</div>
+    <div class="drop-label">Drop PDFs here or click to browse</div>
+    <div class="drop-sub">Add RPA + any counters or addenda · Multiple files OK</div>
+  </div>
+
+  <div class="doc-list" id="docList"></div>
+  <div class="order-note" id="orderNote" style="display:none;">Arrange documents in chronological order — earliest to latest. Set the correct doc type for each. Later counters supersede earlier terms, so order matters.</div>
+
+  <button class="generate-btn" id="generateBtn" disabled>Generate Agent Email</button>
+  <div class="status" id="status"></div>
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div id="outputSection" style="display:none;">
+    <hr class="divider">
+    <div class="output-header">
+      <span class="section-label" style="margin:0;">Generated Email</span>
+    </div>
+    <div class="email-card" id="emailOutput"></div>
+    <div class="action-row">
+      <button class="btn-action primary" id="copyBtn">Copy to clipboard</button>
+      <button class="btn-action" id="resetBtn">Clear & start over</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let docs = [];
+
+const DOC_TYPES = [
+  {value:'rpa',      label:'RPA — Residential Purchase Agreement'},
+  {value:'sco1',     label:'Seller Counter Offer #1 (SCO1)'},
+  {value:'bco1',     label:'Buyer Counter Offer #1 (BCO1)'},
+  {value:'sco2',     label:'Seller Counter Offer #2 (SCO2)'},
+  {value:'bco2',     label:'Buyer Counter Offer #2 (BCO2)'},
+  {value:'sco3',     label:'Seller Counter Offer #3 (SCO3)'},
+  {value:'bco3',     label:'Buyer Counter Offer #3 (BCO3)'},
+  {value:'smco1',    label:'Seller Multiple Counter Offer #1 (SMCO1)'},
+  {value:'smco2',    label:'Seller Multiple Counter Offer #2 (SMCO2)'},
+  {value:'smco3',    label:'Seller Multiple Counter Offer #3 (SMCO3)'},
+  {value:'addendum', label:'Addendum'},
+  {value:'sbca',     label:'SBCA — Sale of Buyer\'s Contingency Addendum'},
+  {value:'summary',  label:'Transaction Summary'},
+  {value:'other',    label:'Other'},
+];
+
+const apiKeyInput  = document.getElementById('apiKey');
+const saveKeyBtn   = document.getElementById('saveKeyBtn');
+const fileInput    = document.getElementById('fileInput');
+const dropzone     = document.getElementById('dropzone');
+const docList      = document.getElementById('docList');
+const orderNote    = document.getElementById('orderNote');
+const generateBtn  = document.getElementById('generateBtn');
+const status       = document.getElementById('status');
+const errorMsg     = document.getElementById('errorMsg');
+const outputSection= document.getElementById('outputSection');
+const emailOutput  = document.getElementById('emailOutput');
+const copyBtn      = document.getElementById('copyBtn');
+const resetBtn     = document.getElementById('resetBtn');
+
+// Load saved key
+const savedKey = localStorage.getItem('tc_api_key');
+if (savedKey) { apiKeyInput.value = savedKey; saveKeyBtn.textContent = 'Saved ✓'; saveKeyBtn.classList.add('saved'); }
+
+saveKeyBtn.addEventListener('click', () => {
+  const key = apiKeyInput.value.trim();
+  if (!key) return;
+  localStorage.setItem('tc_api_key', key);
+  saveKeyBtn.textContent = 'Saved ✓';
+  saveKeyBtn.classList.add('saved');
+  setTimeout(() => { saveKeyBtn.textContent = 'Save'; saveKeyBtn.classList.remove('saved'); }, 2000);
+});
+
+function guessType(name) {
+  const n = name.toLowerCase();
+  if (n.includes('smco3')) return 'smco3';
+  if (n.includes('smco2')) return 'smco2';
+  if (n.includes('smco1') || n.includes('smco')) return 'smco1';
+  if (n.includes('sco3')) return 'sco3';
+  if (n.includes('sco2')) return 'sco2';
+  if (n.includes('sco1') || (n.includes('seller') && n.includes('counter'))) return 'sco1';
+  if (n.includes('bco3')) return 'bco3';
+  if (n.includes('bco2')) return 'bco2';
+  if (n.includes('bco1') || (n.includes('buyer') && n.includes('counter'))) return 'bco1';
+  if (n.includes('sbca')) return 'sbca';
+  if (n.includes('addendum')) return 'addendum';
+  if (n.includes('summary')) return 'summary';
+  if (n.includes('rpa') || n.includes('purchase')) return 'rpa';
+  return 'rpa';
+}
+
+function updateGenerateBtn() {
+  generateBtn.disabled = docs.length === 0;
+}
+
+function renderDocs() {
+  docList.innerHTML = '';
+  orderNote.style.display = docs.length ? '' : 'none';
+  updateGenerateBtn();
+
+  docs.forEach((doc, i) => {
+    const row = document.createElement('div');
+    row.className = 'doc-row';
+
+    const num = document.createElement('span');
+    num.className = 'doc-num';
+    num.textContent = i + 1;
+
+    const upBtn = document.createElement('button');
+    upBtn.className = 'move-btn';
+    upBtn.textContent = '↑';
+    upBtn.disabled = i === 0;
+    upBtn.addEventListener('click', () => { if(i>0){[docs[i-1],docs[i]]=[docs[i],docs[i-1]];renderDocs();} });
+
+    const downBtn = document.createElement('button');
+    downBtn.className = 'move-btn';
+    downBtn.textContent = '↓';
+    downBtn.disabled = i === docs.length - 1;
+    downBtn.addEventListener('click', () => { if(i<docs.length-1){[docs[i],docs[i+1]]=[docs[i+1],docs[i]];renderDocs();} });
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'doc-name';
+    nameEl.textContent = doc.name;
+    nameEl.title = doc.name;
+
+    const sel = document.createElement('select');
+    sel.className = 'doc-type-select';
+    DOC_TYPES.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.value;
+      opt.textContent = t.label;
+      if (t.value === doc.type) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', () => { docs[i].type = sel.value; });
+
+    const removeBtn = document.createElement('span');
+    removeBtn.className = 'doc-remove';
+    removeBtn.textContent = '×';
+    removeBtn.title = 'Remove';
+    removeBtn.addEventListener('click', () => { docs.splice(i,1); renderDocs(); });
+
+    row.append(num, upBtn, downBtn, nameEl, sel, removeBtn);
+    docList.appendChild(row);
+  });
+}
+
+function handleFiles(files) {
+  Array.from(files).forEach(file => {
+    if (!file.name.toLowerCase().endsWith('.pdf')) return;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      docs.push({ name: file.name, type: guessType(file.name), mode: 'base64', base64: reader.result.split(',')[1] });
+      renderDocs();
+    };
+  });
+}
+
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
+dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('over'); handleFiles(e.dataTransfer.files); });
+
+// ── Holiday & business-day rolling logic ──────────────────────────────────
+function getFederalHolidays(year) {
+  const holidays = [];
+  const pad = n => String(n).padStart(2,'0');
+  const ymd = (y,m,d) => `${y}-${pad(m)}-${pad(d)}`;
+  const nthWeekday = (y,m,nth,dow) => {
+    let d = new Date(y,m-1,1), count=0;
+    while(true){if(d.getDay()===dow){count++;if(count===nth)return d.getDate();}d.setDate(d.getDate()+1);}
+  };
+  const lastWeekday = (y,m,dow) => {
+    let d = new Date(y,m,0);
+    while(d.getDay()!==dow)d.setDate(d.getDate()-1);
+    return d.getDate();
+  };
+  // Fixed — roll Sat->Fri, Sun->Mon
+  [[1,1],[6,19],[7,4],[11,11],[12,25]].forEach(([m,day])=>{
+    let dt=new Date(year,m-1,day);
+    if(dt.getDay()===6)dt.setDate(day-1);
+    if(dt.getDay()===0)dt.setDate(day+1);
+    holidays.push(ymd(year,dt.getMonth()+1,dt.getDate()));
+  });
+  // Floating
+  holidays.push(ymd(year,1, nthWeekday(year,1,3,1)));  // MLK 3rd Mon Jan
+  holidays.push(ymd(year,2, nthWeekday(year,2,3,1)));  // Presidents 3rd Mon Feb
+  holidays.push(ymd(year,5, lastWeekday(year,5,1)));   // Memorial last Mon May
+  holidays.push(ymd(year,9, nthWeekday(year,9,1,1)));  // Labor 1st Mon Sep
+  holidays.push(ymd(year,10,nthWeekday(year,10,2,1))); // Columbus 2nd Mon Oct
+  holidays.push(ymd(year,11,nthWeekday(year,11,4,4))); // Thanksgiving 4th Thu Nov
+  // New Year's observed: if Jan 1 is Sat, Dec 31 observed
+  if(new Date(year,0,1).getDay()===6) holidays.push(`${year-1}-12-31`);
+  return holidays;
+}
+
+function toYMD(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+function isBusinessDay(ymdStr){
+  const d=new Date(ymdStr+'T12:00:00'), dow=d.getDay();
+  if(dow===0||dow===6)return false;
+  return !getFederalHolidays(d.getFullYear()).includes(ymdStr);
+}
+
+function rollForward(ymdStr){
+  let d=new Date(ymdStr+'T12:00:00'), safety=0, rolled=false;
+  while(!isBusinessDay(toYMD(d))&&safety<14){d.setDate(d.getDate()+1);rolled=true;safety++;}
+  return {date:toYMD(d), rolled};
+}
+
+function addCalDays(ymdStr,n){
+  const d=new Date(ymdStr+'T12:00:00');d.setDate(d.getDate()+n);return toYMD(d);
+}
+
+function addBizDays(ymdStr,n){
+  let d=new Date(ymdStr+'T12:00:00'),added=0,safety=0;
+  while(added<n&&safety<60){d.setDate(d.getDate()+1);if(isBusinessDay(toYMD(d)))added++;safety++;}
+  return toYMD(d);
+}
+
+function fmtDate(ymdStr){
+  return new Date(ymdStr+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+}
+
+function buildTimeline(acceptanceYMD, milestones){
+  const entries=[];
+  let coeYMD=null;
+
+  // First pass: all except before_coe
+  milestones.forEach(m=>{
+    let raw=null;
+    if(m.method==='business') raw=addBizDays(acceptanceYMD,m.days);
+    else if(m.method==='calendar') raw=addCalDays(acceptanceYMD,m.days);
+    else if(m.method==='fixed') raw=m.fixedDate;
+    if(raw){
+      const {date,rolled}=rollForward(raw);
+      if(m.isCOE) coeYMD=date;
+      const rollNote=rolled?` (rolled from ${fmtDate(raw)})`:'';
+      const dayLabel=m.days?(m.method==='business'?`${m.days} business days`:`${m.days} calendar days`):'';
+      entries.push({label:m.label,date,displayDate:fmtDate(date),rollNote,dayLabel,isCOE:!!m.isCOE,isContingency:!!m.isContingency});
+    }
+  });
+
+  // Second pass: before_coe
+  if(coeYMD){
+    milestones.filter(m=>m.method==='before_coe').forEach(m=>{
+      const raw=addCalDays(coeYMD,-Math.abs(m.days));
+      const {date,rolled}=rollForward(raw);
+      const rollNote=rolled?` (rolled from ${fmtDate(raw)})`:'';
+      entries.push({label:m.label,date,displayDate:fmtDate(date),rollNote,dayLabel:`${m.days} calendar days prior to COE`,isContingency:false});
+    });
+  }
+
+  entries.sort((a,b)=>a.date.localeCompare(b.date));
+
+  const lines=[];
+  const processed=new Set();
+
+  entries.forEach((e,i)=>{
+    if(processed.has(i)) return;
+    const sameDayContingencies=entries.map((e2,j)=>({e:e2,j}))
+      .filter(({e:e2,j})=>!processed.has(j)&&e2.date===e.date&&e2.isContingency);
+
+    if(e.isContingency&&sameDayContingencies.length>1){
+      lines.push(`<div style="margin:5px 0;">${e.displayDate} &mdash; <b>All Contingencies Due</b>${e.rollNote}</div>`);
+      sameDayContingencies.forEach(({e:e2,j})=>{
+        lines.push(`<div style="margin:2px 0 2px 24px;">&bull;&nbsp;${e2.label} &mdash; ${e2.dayLabel}</div>`);
+        processed.add(j);
+      });
+    } else if(e.isContingency){
+      lines.push(`<div style="margin:5px 0;">${e.displayDate} &mdash; <b>${e.label}</b> &mdash; ${e.dayLabel}${e.rollNote}</div>`);
+      processed.add(i);
+    } else {
+      const dl=e.dayLabel?` &mdash; ${e.dayLabel}`:'';
+      lines.push(`<div style="margin:5px 0;">${e.displayDate} &mdash; <b>${e.label}</b>${dl}${e.rollNote}</div>`);
+      processed.add(i);
+    }
+  });
+
+  return lines.join('');
+}
+// ── End date logic ─────────────────────────────────────────────────────────
+
+generateBtn.addEventListener('click', async () => {
+  const apiKey = apiKeyInput.value.trim() || localStorage.getItem('tc_api_key') || '';
+  if (!apiKey) { errorMsg.textContent = 'Please enter your Anthropic API key above.'; return; }
+  if (!docs.length) return;
+
+  generateBtn.disabled = true;
+  outputSection.style.display = 'none';
+  errorMsg.textContent = '';
+  status.textContent = 'Reading contract chain and resolving final terms...';
+
+  const docTypeLabel = d => DOC_TYPES.find(t=>t.value===d.type)?.label || d.type;
+
+  const system = `You are an expert California real estate Transaction Coordinator working with C.A.R. Forms.
+
+You will receive one or more documents — an RPA and potentially counters or addenda, in chronological order.
+
+Your job:
+1. Read all documents in order. Later counters supersede earlier terms. SMCO replaces SCO. BCO confirms or further counters.
+2. Determine the FINAL agreed terms across the entire chain.
+3. Return ONLY a raw JSON object — no markdown, no backticks, no explanation.
+
+JSON structure:
+{
+  "property_address": "full street address, city, state zip",
+  "acceptance_date": "YYYY-MM-DD",
+  "purchase_price": "$xxx,xxx",
+  "financing_type": "Conventional / FHA / VA / Cash / etc.",
+  "buyers": "full buyer names including trust info if applicable",
+  "sellers": "full seller names including trust info if applicable",
+  "listing_agent": "full name",
+  "buyers_agent": "full name",
+  "escrow_company": "name",
+  "escrow_officer": "name",
+  "escrow_number": "number",
+  "lender": "name or null",
+  "loan_officer": "name or null",
+  "hoa_name": "name or null",
+  "hoa_dues": "$xxx/month or null",
+  "hoa_phone": "number or null",
+  "milestones": [
+    { "label": "Initial Deposit Due", "method": "business", "days": 3 },
+    { "label": "Seller Delivery of Disclosures", "method": "calendar", "days": 7 },
+    { "label": "Loan Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Appraisal Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Buyer Investigation Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Review of Seller Documents Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Title Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Common Interest Disclosure (CID) Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Sale of Buyer's Property Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Insurance Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Review of Leased or Liened Items Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Final Verification of Condition", "method": "before_coe", "days": 5 },
+    { "label": "Close of Escrow", "method": "calendar", "days": 30, "isCOE": true }
+  ],
+  "seller_obligations": [
+    "Seller Credit: $xx,xxx toward buyer closing costs",
+    "Home Warranty: Seller to pay [plan details] NTE $x,xxx",
+    "Termite: Seller to pay for inspection report",
+    "Buyer Broker Compensation: x%"
+  ],
+  "deposit": "$xx,xxx due within 3 business days of acceptance"
+}
+
+Milestone rules:
+- "business" method ONLY for initial deposit. All other deadlines use "calendar" days per C.A.R. RPA.
+- Section L contingencies (L1–L9) — all require "isContingency": true. The full list is: Loan (L1), Appraisal (L2), Buyer Investigation (L3), Review of Seller Documents (L4), Title (L5), Common Interest Disclosure/CID (L6), Sale of Buyer's Property (L7), Insurance (L8), Review of Leased or Liened Items (L9).
+- Section N1 is Seller Delivery of Disclosures — NOT a contingency (no isContingency flag), but always include it.
+- Omit Loan and Appraisal milestones for cash transactions. Omit CID (L6) if not a common interest development. Omit Sale of Buyer's Property (L7) if no COP/SBCA in the contract. Omit Leased/Liened Items (L9) if not applicable per contract.
+- Use actual day counts from the final agreed contract — do not assume defaults if the contract specifies otherwise. Default is 17 calendar days for all Section L contingencies if not otherwise stated.
+- isCOE: true only on Close of Escrow.
+- DO NOT roll dates — the application handles all weekend/holiday rolling.
+- seller_obligations: list every seller-paid or seller-provided item. Be specific — include plan names, NTE amounts, and scope.
+- deposit: exact dollar amount and timing from the final agreed terms.
+
+Output raw JSON only.`;
+
+  const contentBlocks = [];
+  docs.forEach((doc, i) => {
+    contentBlocks.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}"` });
+    contentBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
+  });
+  contentBlocks.push({ type: 'text', text: 'Read all documents in order, resolve final agreed terms, and return the JSON object.' });
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 1500,
+        system,
+        messages: [{ role: 'user', content: contentBlocks }]
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || `API error ${response.status}`);
+
+    const rawText = data.content?.find(b => b.type === 'text')?.text || '';
+    const clean = rawText.replace(/```json|```/g,'').trim();
+    const tx = JSON.parse(clean);
+
+    // Strip any markdown bold (**text**) the AI may have returned in string fields
+    function stripMd(v) {
+      if (typeof v === 'string') return v.replace(/\*\*([^*]+)\*\*/g, '$1');
+      if (Array.isArray(v)) return v.map(stripMd);
+      if (v && typeof v === 'object') { Object.keys(v).forEach(k => { v[k] = stripMd(v[k]); }); }
+      return v;
+    }
+    stripMd(tx);
+
+    // JS handles all date rolling — never trust AI for this
+    const timeline = buildTimeline(tx.acceptance_date, tx.milestones);
+
+    // Get COE display date
+    const coeM = tx.milestones.find(m=>m.isCOE);
+    const coeRaw = coeM ? addCalDays(tx.acceptance_date, coeM.days) : null;
+    const coeDisplay = coeRaw ? fmtDate(rollForward(coeRaw).date) : 'TBD';
+
+      // Build HTML email for Outlook compatibility
+    const soLines = (tx.seller_obligations||[]).map(h=>`<div style="margin:3px 0 3px 12px;">&bull;&nbsp;${h}</div>`).join('');
+    const lenderLine = tx.lender ? `<div><b>Lender:</b> ${tx.lender}${tx.loan_officer ? ' &middot; Loan Officer: '+tx.loan_officer : ''}</div>` : '';
+    const hoaLine = tx.hoa_name ? `<div><b>HOA:</b> ${tx.hoa_name}${tx.hoa_dues?' &mdash; '+tx.hoa_dues:''}${tx.hoa_phone?' &middot; '+tx.hoa_phone:''}</div>` : '';
+
+    // timeline already outputs HTML from buildTimeline
+    const timelineHtml = timeline;
+
+    const divider = `<div style="border-top:1px solid #cccccc;margin:16px 0;"></div>`;
+
+    const emailHtml = `<div style="font-family:Calibri,Arial,sans-serif;font-size:14px;color:#1a1a1a;line-height:1.7;max-width:640px;">
+<p style="margin:0 0 12px;">Good Afternoon,</p>
+<p style="margin:0 0 12px;">I am writing to confirm the opening of escrow and to provide a complete transaction summary for <b>${tx.property_address}</b>.</p>
+<p style="margin:0 0 12px;">Please review the details below and do not hesitate to contact me with any questions or corrections.</p>
+${divider}
+<p style="margin:0 0 10px;"><b>TRANSACTION OVERVIEW</b></p>
+<p style="margin:0 0 6px;">${tx.financing_type} purchase at ${tx.purchase_price}.</p>
+<p style="margin:0 0 6px;">${tx.buyers} purchasing from ${tx.sellers}.</p>
+<p style="margin:0 0 12px;"><b>Close of Escrow</b> is scheduled for ${coeDisplay}.</p>
+${divider}
+<p style="margin:0 0 10px;"><b>KEY DATES</b></p>
+${timelineHtml}
+${divider}
+<p style="margin:0 0 10px;"><b>PARTIES &amp; CONTACTS</b></p>
+<div style="margin:0 0 6px;"><b>Buyers:</b> ${tx.buyers}</div>
+<div style="margin:0 0 6px;"><b>Sellers:</b> ${tx.sellers}</div>
+<div style="margin:8px 0 2px;"><b>Listing Agent:</b> ${tx.listing_agent}</div>
+<div style="margin:0 0 2px;"><b>Buyer's Agent:</b> ${tx.buyers_agent}</div>
+<div style="margin:8px 0 2px;"><b>Escrow:</b> ${tx.escrow_company}</div>
+<div style="margin:0 0 2px;"><b>Escrow Officer:</b> ${tx.escrow_officer}</div>
+<div style="margin:0 0 8px;"><b>Escrow Number:</b> #${tx.escrow_number}</div>
+${lenderLine}${hoaLine}
+${divider}
+<p style="margin:0 0 10px;"><b>CONTRACT HIGHLIGHTS &amp; SELLER OBLIGATIONS</b></p>
+${soLines}
+${divider}
+<p style="margin:0 0 12px;"><b>Please confirm that the dates and terms above align with your records. I will follow up with reminders 1&ndash;2 business days prior to each contingency removal deadline.</b></p>
+<p style="margin:0 0 6px;">Thank you for the opportunity to work on this transaction. I look forward to a smooth escrow.</p>
+<p style="margin:12px 0 0;">Respectfully,</p>
+</div>`;
+
+    // Plain text version for display in the card
+    const emailPlain = emailHtml.replace(/<b>/g,'').replace(/<\/b>/g,'').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&bull;/g,'\u2022').replace(/&mdash;/g,'\u2014').replace(/&middot;/g,'\u00b7').replace(/&ndash;/g,'\u2013').replace(/\n{3,}/g,'\n\n').trim();
+
+    emailOutput.innerHTML = emailHtml;
+    emailOutput._htmlContent = emailHtml;
+    emailOutput._subject = `Overview & Key Dates - ${tx.property_address}`;
+    outputSection.style.display = 'block';
+    status.textContent = '';
+    generateBtn.disabled = false;
+    outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch(err) {
+    errorMsg.textContent = 'Error: ' + err.message;
+    status.textContent = '';
+    generateBtn.disabled = false;
+  }
+});
+
+copyBtn.addEventListener('click', () => {
+  const html = emailOutput._htmlContent || '';
+  const subject = emailOutput._subject || 'Transaction Summary';
+  // Copy rich HTML to clipboard so Outlook receives formatted text
+  const blob = new Blob([html], {type: 'text/html'});
+  const plainBlob = new Blob([emailOutput.innerText], {type: 'text/plain'});
+  const item = new ClipboardItem({'text/html': blob, 'text/plain': plainBlob});
+  navigator.clipboard.write([item]).then(() => {
+    copyBtn.textContent = 'Copied! Paste into Outlook \u2014 bold will render.';
+    setTimeout(() => { copyBtn.textContent = 'Copy to clipboard'; }, 3000);
+  }).catch(() => {
+    // Fallback: copy plain text
+    navigator.clipboard.writeText(emailOutput.innerText).then(() => {
+      copyBtn.textContent = 'Copied (plain text fallback)';
+      setTimeout(() => { copyBtn.textContent = 'Copy to clipboard'; }, 2500);
+    });
+  });
+});
+
+resetBtn.addEventListener('click', () => {
+  docs = [];
+  renderDocs();
+  emailOutput.textContent = '';
+  outputSection.style.display = 'none';
+  status.textContent = '';
+  errorMsg.textContent = '';
+  fileInput.value = '';
+});
+</script>
+</body>
+</html>
