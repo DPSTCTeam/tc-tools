@@ -575,11 +575,11 @@ function fmtDate(ymdStr){
   return new Date(ymdStr+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 }
 
-function buildTimeline(acceptanceYMD, milestones){
+function buildTimeline(acceptanceYMD, milestones, depositAmount, possession){
   const entries=[];
   let coeYMD=null;
 
-  // First pass: all except before_coe
+  // First pass: all except before_coe  (date math unchanged)
   milestones.forEach(m=>{
     let raw=null;
     if(m.method==='business') raw=addBizDays(acceptanceYMD,m.days);
@@ -588,49 +588,84 @@ function buildTimeline(acceptanceYMD, milestones){
     if(raw){
       const {date,rolled}=rollForward(raw);
       if(m.isCOE) coeYMD=date;
-      const rollNote=rolled?` (rolled from ${fmtDate(raw)})`:'';
+      const rollNote=rolled?`rolled from ${fmtDate(raw)}`:'';
       const dayLabel=m.days?(m.method==='business'?`${m.days} business days`:`${m.days} calendar days`):'';
-      entries.push({label:m.label,date,displayDate:fmtDate(date),rollNote,dayLabel,isCOE:!!m.isCOE,isContingency:!!m.isContingency});
+      entries.push({label:m.label,date,displayDate:fmtDate(date),rollNote,dayLabel,isCOE:!!m.isCOE,isContingency:!!m.isContingency,isBeforeCoe:false});
     }
   });
 
-  // Second pass: before_coe
+  // Second pass: before_coe  (date math unchanged)
   if(coeYMD){
     milestones.filter(m=>m.method==='before_coe').forEach(m=>{
       const raw=addCalDays(coeYMD,-Math.abs(m.days));
       const {date,rolled}=rollForward(raw);
-      const rollNote=rolled?` (rolled from ${fmtDate(raw)})`:'';
-      entries.push({label:m.label,date,displayDate:fmtDate(date),rollNote,dayLabel:`${m.days} calendar days prior to COE`,isContingency:false});
+      const rollNote=rolled?`rolled from ${fmtDate(raw)}`:'';
+      entries.push({label:m.label,date,displayDate:fmtDate(date),rollNote,dayLabel:`${m.days} calendar days prior to COE`,isCOE:false,isContingency:false,isBeforeCoe:true});
     });
   }
 
-  entries.sort((a,b)=>a.date.localeCompare(b.date));
+  // ── Bucket into sections (chronological within each) ──
+  const byDate=(a,b)=>a.date.localeCompare(b.date);
+  const top    = entries.filter(e=>!e.isContingency && !e.isCOE && !e.isBeforeCoe).sort(byDate);
+  const conts  = entries.filter(e=>e.isContingency).sort(byDate);
+  const finals = entries.filter(e=>e.isCOE || e.isBeforeCoe).sort(byDate);
 
-  const lines=[];
-  const processed=new Set();
+  // ── Inline, Outlook-safe styling ──
+  const cell='border:1px solid #cccccc;padding:7px 11px;vertical-align:top;';
+  const sub ='font-size:11px;color:#8a8a85;font-style:italic;margin-top:2px;';
 
-  entries.forEach((e,i)=>{
-    if(processed.has(i)) return;
-    const sameDayContingencies=entries.map((e2,j)=>({e:e2,j}))
-      .filter(({e:e2,j})=>!processed.has(j)&&e2.date===e.date&&e2.isContingency);
+  const row=(e,opts)=>{
+    opts=opts||{};
+    const dash   = opts.dash ? '&ndash;&nbsp;' : '';
+    const weight = opts.coe ? '700' : '600';
+    const dateCell = opts.amount ? `${opts.amount} &mdash; ${e.displayDate}` : e.displayDate;
+    const dayLine  = e.dayLabel  ? `<div style="${sub}">${e.dayLabel}</div>`  : '';
+    const rollLine = e.rollNote  ? `<div style="${sub}">${e.rollNote}</div>`  : '';
+    const nowrap = opts.wrap ? '' : 'white-space:nowrap;';
+    return `<tr>`
+      + `<td style="${cell}"><span style="font-weight:${weight};">${dash}${e.label}</span>${dayLine}</td>`
+      + `<td style="${cell}${nowrap}">${dateCell}${rollLine}</td>`
+      + `</tr>`;
+  };
 
-    if(e.isContingency&&sameDayContingencies.length>1){
-      lines.push(`<div style="margin:5px 0;">${e.displayDate} &mdash; <b>All Contingencies Due</b>${e.rollNote}</div>`);
-      sameDayContingencies.forEach(({e:e2,j})=>{
-        lines.push(`<div style="margin:2px 0 2px 24px;">&bull;&nbsp;${e2.label} &mdash; ${e2.dayLabel}</div>`);
-        processed.add(j);
-      });
-    } else if(e.isContingency){
-      lines.push(`<div style="margin:5px 0;">${e.displayDate} &mdash; <b>${e.label}</b> &mdash; ${e.dayLabel}${e.rollNote}</div>`);
-      processed.add(i);
-    } else {
-      const dl=e.dayLabel?` &mdash; ${e.dayLabel}`:'';
-      lines.push(`<div style="margin:5px 0;">${e.displayDate} &mdash; <b>${e.label}</b>${dl}${e.rollNote}</div>`);
-      processed.add(i);
-    }
+  const header=(emoji,text)=>`<tr><td colspan="2" bgcolor="#ececec" style="border:1px solid #cccccc;padding:7px 11px;background:#ececec;font-weight:700;">${emoji}&nbsp;${text}</td></tr>`;
+
+  let rows='';
+  // Column header
+  rows+=`<tr>`
+    + `<td bgcolor="#e0e0dd" style="border:1px solid #cccccc;padding:8px 11px;background:#e0e0dd;font-weight:700;">&#128197;&nbsp;Milestone</td>`
+    + `<td bgcolor="#e0e0dd" style="border:1px solid #cccccc;padding:8px 11px;background:#e0e0dd;font-weight:700;">Date</td>`
+    + `</tr>`;
+
+  // Opening milestones (deposit row carries its dollar amount, like the example)
+  top.forEach(e=>{
+    const amount = /deposit/i.test(e.label) ? (depositAmount||'') : '';
+    rows+=row(e,{amount});
   });
 
-  return lines.join('');
+  // Contingencies — one row each
+  if(conts.length){
+    rows+=header('&#9888;&#65039;','Contingencies');
+    conts.forEach(e=>{ rows+=row(e,{dash:true}); });
+  }
+
+  // Final steps
+  if(finals.length){
+    rows+=header('&#127881;','Final Steps');
+    finals.forEach(e=>{ rows+=row(e,{coe:e.isCOE}); });
+    // Time of Possession — possession terms, not a performance deadline (not rolled)
+    const posText=(p=>{
+      if(!p) return 'At Close of Escrow';
+      const note=p.note?` (${p.note})`:'';
+      if(p.method==='after_coe'&&coeYMD&&p.days) return `${fmtDate(addCalDays(coeYMD,Math.abs(p.days)))}${note}`;
+      if(p.method==='fixed'&&p.fixedDate)        return `${fmtDate(p.fixedDate)}${note}`;
+      if(p.method==='other'&&p.note)             return p.note;
+      return `At Close of Escrow${note}`;
+    })(possession);
+    rows+=row({label:'Time of Possession',displayDate:posText,dayLabel:'',rollNote:''},{wrap:true});
+  }
+
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:580px;border:1px solid #cccccc;font-family:Calibri,Arial,sans-serif;font-size:14px;color:#1a1a1a;">${rows}</table>`;
 }
 // ── End date logic ─────────────────────────────────────────────────────────
 
@@ -679,12 +714,12 @@ JSON structure:
     { "label": "Loan Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
     { "label": "Appraisal Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
     { "label": "Buyer Investigation Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Review of Seller Documents Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Title Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Common Interest Disclosure (CID) Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Sale of Buyer's Property Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
     { "label": "Insurance Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Review of Leased or Liened Items Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Review of Disclosures Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Review of Prelim Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Review of HOA Documents Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Review of any Leased/Liened Items Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
+    { "label": "Sale of Buyer's Property (COP) Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
     { "label": "Final Verification of Condition", "method": "before_coe", "days": 5 },
     { "label": "Close of Escrow", "method": "calendar", "days": 30, "isCOE": true }
   ],
@@ -694,15 +729,17 @@ JSON structure:
     "Termite: Seller to pay for inspection report",
     "Buyer Broker Compensation: x%"
   ],
-  "deposit": "$xx,xxx due within 3 business days of acceptance"
+  "deposit": "$xx,xxx due within 3 business days of acceptance",
+  "possession": { "method": "at_coe", "days": 0, "fixedDate": null, "note": null }
 }
 
 Milestone rules:
 - "business" method ONLY for initial deposit. All other deadlines use "calendar" days per C.A.R. RPA.
-- Section L contingencies (L1–L9) — all require "isContingency": true. The full list is: Loan (L1), Appraisal (L2), Buyer Investigation (L3), Review of Seller Documents (L4), Title (L5), Common Interest Disclosure/CID (L6), Sale of Buyer's Property (L7), Insurance (L8), Review of Leased or Liened Items (L9).
+- Section L contingencies (L1–L9) — all require "isContingency": true. Map to these labels: Loan (L1), Appraisal (L2), Buyer Investigation (L3), Insurance (L8), Review of Disclosures = Review of Seller Documents (L4), Review of Prelim = Title/preliminary report (L5), Review of HOA Documents = Common Interest Disclosure/CID (L6), Review of any Leased/Liened Items (L9), Sale of Buyer's Property (COP) (L7). Output them in this exact order.
 - Section N1 is Seller Delivery of Disclosures — NOT a contingency (no isContingency flag), but always include it.
-- Omit Loan and Appraisal milestones for cash transactions. Omit CID (L6) if not a common interest development. Omit Sale of Buyer's Property (L7) if no COP/SBCA in the contract. Omit Leased/Liened Items (L9) if not applicable per contract.
+- Include every contingency that exists in the contract. Omit Loan and Appraisal for cash transactions. Omit Review of HOA Documents (L6) if not a common interest development / no HOA. Omit Sale of Buyer's Property/COP (L7) if there is no COP/SBCA addendum. Omit Review of any Leased/Liened Items (L9) if not applicable per contract. When in doubt, include it.
 - Use actual day counts from the final agreed contract — do not assume defaults if the contract specifies otherwise. Default is 17 calendar days for all Section L contingencies if not otherwise stated.
+- possession: extract from the RPA Possession paragraph. Default is method "at_coe" (possession transfers at Close of Escrow) unless the contract states otherwise. Use "after_coe" with "days" if possession is X days after COE; "fixed" with "fixedDate" (YYYY-MM-DD) for a specific calendar date; "other" with a "note" for rent-back / seller-in-possession / SIP arrangements. Put any time-of-day or special term in "note".
 - isCOE: true only on Close of Escrow.
 - DO NOT roll dates — the application handles all weekend/holiday rolling.
 - seller_obligations: list every seller-paid or seller-provided item. Be specific — include plan names, NTE amounts, and scope.
@@ -751,7 +788,8 @@ Output raw JSON only.`;
     stripMd(tx);
 
     // JS handles all date rolling — never trust AI for this
-    const timeline = buildTimeline(tx.acceptance_date, tx.milestones);
+    const depositAmt = (tx.deposit || '').match(/\$[\d,]+(?:\.\d{2})?/)?.[0] || '';
+    const timeline = buildTimeline(tx.acceptance_date, tx.milestones, depositAmt, tx.possession);
 
     // Get COE display date
     const coeM = tx.milestones.find(m=>m.isCOE);
@@ -778,7 +816,7 @@ ${divider}
 <p style="margin:0 0 6px;">${tx.buyers} purchasing from ${tx.sellers}.</p>
 <p style="margin:0 0 12px;"><b>Close of Escrow</b> is scheduled for ${coeDisplay}.</p>
 ${divider}
-<p style="margin:0 0 10px;"><b>KEY DATES</b></p>
+<p style="margin:0 0 10px;"><b>&#9200; KEY DATES</b></p>
 ${timelineHtml}
 ${divider}
 <p style="margin:0 0 10px;"><b>PARTIES &amp; CONTACTS</b></p>
@@ -847,4 +885,3 @@ resetBtn.addEventListener('click', () => {
 </script>
 </body>
 </html>
-
