@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TC Email Generator</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 <style>
   :root {
     --black: #0f0f0f;
@@ -514,6 +516,64 @@ dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classL
 dropzone.addEventListener('dragleave', () => dropzone.classList.remove('over'));
 dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('over'); handleFiles(e.dataTransfer.files); });
 
+// ── High-resolution page tiling ───────────────────────────────────────────
+// The critical RPA values (override blanks, waiver checkboxes, percentages) are
+// tiny print that the API's full-page PDF rendering can misread. We render key
+// pages at 2.5x and slice each into 4 overlapping quadrants so the model gets
+// a legible, zoomed view of every part of the terms grid.
+// 2 cols x 3 rows per page at scale 3.1 ≈ 2.2x the effective resolution the API
+// gets from a full-page render, while each tile stays under the ~1.15MP cap
+// where the API would downscale it again.
+const TILE_SCALE = 3.1, TILE_OVERLAP = 0.08, TILE_COLS = 2, TILE_ROWS = 3;
+
+async function loadPdf(base64){
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return pdfjsLib.getDocument({data:bytes}).promise;
+}
+
+async function tilePage(pdf, num){
+  const page = await pdf.getPage(num);
+  const vp = page.getViewport({scale:TILE_SCALE});
+  const canvas = document.createElement('canvas');
+  canvas.width = vp.width; canvas.height = vp.height;
+  await page.render({canvasContext:canvas.getContext('2d'), viewport:vp}).promise;
+  const w=canvas.width, h=canvas.height;
+  const tw=Math.ceil(w*(1/TILE_COLS+TILE_OVERLAP)), th=Math.ceil(h*(1/TILE_ROWS+TILE_OVERLAP));
+  const tiles=[];
+  for(let r=0;r<TILE_ROWS;r++){
+    for(let c=0;c<TILE_COLS;c++){
+      const x=Math.max(0, Math.min(Math.round(c*w/TILE_COLS), w-tw));
+      const y=Math.max(0, Math.min(Math.round(r*h/TILE_ROWS), h-th));
+      const c2=document.createElement('canvas');
+      c2.width=tw; c2.height=th;
+      c2.getContext('2d').drawImage(canvas,x,y,tw,th,0,0,tw,th);
+      tiles.push({label:`page ${num}, section row ${r+1} of ${TILE_ROWS}, ${c===0?'left':'right'} half (high-res zoom)`, data:c2.toDataURL('image/png').split(',')[1]});
+    }
+  }
+  return tiles;
+}
+
+async function renderTilesForDoc(base64, pageNums){
+  if(!window.pdfjsLib) return [];
+  const pdf = await loadPdf(base64);
+  const tiles=[];
+  for(const num of pageNums){
+    if(num<1 || num>pdf.numPages) continue;
+    tiles.push(...await tilePage(pdf, num));
+  }
+  return tiles;
+}
+
+// Packages often lead with cover forms (AD, PRBS...) and zipForm PDFs have garbled
+// text layers, so key pages can't be found locally. A cheap first API call locates
+// them visually — the model can spot the big grid headers fine at full-page
+// resolution; it's only the tiny fill-in values that need the zoomed tiles.
+function fallbackTilePages(docType){
+  return docType==='rpa' ? [1,2,3,4,5,6,7] : [1,2,3,4];
+}
+
 // ── Holiday & business-day rolling logic ──────────────────────────────────
 function getFederalHolidays(year) {
   const holidays = [];
@@ -575,11 +635,14 @@ function fmtDate(ymdStr){
   return new Date(ymdStr+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
 }
 
-function buildTimeline(acceptanceYMD, milestones, depositAmount, possession){
+function buildTimeline(acceptanceYMD, milestones, depositAmount, possession, waived){
   const entries=[];
   let coeYMD=null;
 
-  // First pass: all except before_coe  (date math unchanged)
+  // First pass: all except before_coe.
+  // Performance may not be required on a weekend/holiday (Civil Code § 11) — any
+  // deadline landing on one rolls to the next business day, with a note showing
+  // the original date. Deposit uses business-day math and lands clean by construction.
   milestones.forEach(m=>{
     let raw=null;
     if(m.method==='business') raw=addBizDays(acceptanceYMD,m.days);
@@ -588,19 +651,19 @@ function buildTimeline(acceptanceYMD, milestones, depositAmount, possession){
     if(raw){
       const {date,rolled}=rollForward(raw);
       if(m.isCOE) coeYMD=date;
-      const rollNote=rolled?`rolled from ${fmtDate(raw)}`:'';
+      const rollNote=rolled?`rolled from ${fmtDate(raw)} (weekend/holiday)`:'';
       const dayLabel=m.days?(m.method==='business'?`${m.days} business days`:`${m.days} calendar days`):'';
       entries.push({label:m.label,date,displayDate:fmtDate(date),rollNote,dayLabel,isCOE:!!m.isCOE,isContingency:!!m.isContingency,isBeforeCoe:false});
     }
   });
 
-  // Second pass: before_coe  (date math unchanged)
+  // Second pass: before_coe (e.g., final walkthrough window)
   if(coeYMD){
     milestones.filter(m=>m.method==='before_coe').forEach(m=>{
       const raw=addCalDays(coeYMD,-Math.abs(m.days));
       const {date,rolled}=rollForward(raw);
-      const rollNote=rolled?`rolled from ${fmtDate(raw)}`:'';
-      entries.push({label:m.label,date,displayDate:fmtDate(date),rollNote,dayLabel:`${m.days} calendar days prior to COE`,isCOE:false,isContingency:false,isBeforeCoe:true});
+      const rollNote=rolled?`rolled from ${fmtDate(raw)} (weekend/holiday)`:'';
+      entries.push({label:m.label,date,displayDate:`on or after ${fmtDate(date)}`,rollNote,dayLabel:`${m.days} calendar days prior to COE`,isCOE:false,isContingency:false,isBeforeCoe:true});
     });
   }
 
@@ -643,10 +706,13 @@ function buildTimeline(acceptanceYMD, milestones, depositAmount, possession){
     rows+=row(e,{amount});
   });
 
-  // Contingencies — one row each
-  if(conts.length){
+  // Contingencies — one row each, then waived ones so nobody assumes a default exists
+  if(conts.length || (waived&&waived.length)){
     rows+=header('&#9888;&#65039;','Contingencies');
     conts.forEach(e=>{ rows+=row(e,{dash:true}); });
+    (waived||[]).forEach(w=>{
+      rows+=row({label:w,displayDate:'<span style="font-weight:700;">WAIVED</span>',dayLabel:'',rollNote:''},{dash:true,wrap:true});
+    });
   }
 
   // Final steps
@@ -681,80 +747,142 @@ generateBtn.addEventListener('click', async () => {
 
   const docTypeLabel = d => DOC_TYPES.find(t=>t.value===d.type)?.label || d.type;
 
-  const system = `You are an expert California real estate Transaction Coordinator working with C.A.R. Forms.
+  const system = `You are an expert California real estate Transaction Coordinator working with C.A.R. Forms. You extract the final agreed terms of a contract chain with zero tolerance for misread fields.
 
-You will receive one or more documents — an RPA and potentially counters or addenda, in chronological order.
+You will receive one or more documents — an RPA and potentially counters or addenda, in chronological order. Each document arrives as a full PDF PLUS high-resolution quadrant tile images of its key pages. The tiles exist because the decisive values live in tiny italic override blanks and small checkboxes that are easy to misread at full-page resolution. READ ALL DAY COUNTS, CHECKBOX STATES, PERCENTAGES, AND FILLED BLANKS FROM THE TILES. Use the full PDF only for overall structure and untiled pages.
 
 Your job:
-1. Read all documents in order. Later counters supersede earlier terms. SMCO replaces SCO. BCO confirms or further counters.
-2. Determine the FINAL agreed terms across the entire chain.
-3. Return ONLY a raw JSON object — no markdown, no backticks, no explanation.
+1. FIRST, transcribe the RPA paragraph 3 grid row by row from the tiles into "grid_transcript" — every row A through R, recording the pre-printed default, whether each override blank is filled and with what value, and the state of every checkbox in the row. Do this BEFORE deriving anything else.
+2. Read all documents in order. Later counters supersede earlier terms. SMCO replaces SCO. BCO confirms or further counters.
+3. Determine the FINAL agreed terms across the entire chain. Every day count in "milestones" MUST match its grid_transcript row.
+4. Return ONLY a raw JSON object — no markdown, no backticks, no explanation.
 
-JSON structure:
+CRITICAL EXTRACTION RULES — each of these exists because it has caused a real error:
+
+A. OVERRIDE BLANKS BEAT PRE-PRINTED DEFAULTS. Nearly every row of the RPA paragraph 3 grid reads like "17 (or ___) Days". If the "or ___" blank is filled in (often small italic text), THAT number is the contractual term — the pre-printed default is void. Examine the override blank on EVERY row (3L contingencies, 3N documents, 3H verifications, 3J, 3K, COE) before recording any day count. Never record a default without confirming its override blank is empty.
+
+B. WAIVER CHECKBOXES BEAT FILLED ROWS. Before reporting ANY contingency, check its waiver checkbox in the right-hand column: "No loan contingency" (3L(1)), "No appraisal contingency" (3L(2)), "CR-B attached", etc. A checked waiver box means that contingency DOES NOT EXIST — record it in "waived_contingencies", NEVER in "milestones", even though the row still shows a day count.
+
+C. FIELD ANCHORING. Take each value ONLY from its home field:
+   - Buyer Broker Compensation: ONLY from paragraph 3G(3)/18A (percent of final purchase price and/or flat $). NEVER from the initial deposit line 3D(1), which also displays a percent of purchase price. Compute the dollar amount from the final price.
+   - Listing agent and buyer's agent: ONLY from the RPA paragraph 2B agency confirmation, plus any changes made by counters. NEVER from form footers or "prepared by" blocks, and NEVER confuse the Seller's name with the listing agent's.
+   - Purchase price, deposit, loan: from the paragraph 3 grid, as amended by the final counter.
+- Seller credits: 3G(1)/(2) only.
+
+D. ACCEPTANCE DATE. Acceptance = the date the LAST accepting party signed the FINAL document in the chain (e.g., the buyer's paragraph 5 signature on the last SCO; the seller's RPA signature if there were no counters). DocuSign timestamps count. It is NOT the RPA "Date Prepared", NOT a counter's date line, NOT the offer expiration.
+
+E. COUNTER OFFER TERMS. List every substantive change made by each counter or addendum in "counter_terms", verbatim-faithful but concise (e.g., "SCO #1: co-listing agent Eric Felty added; Assignment Request (3K/¶23) reduced to 0 days"). Then APPLY those changes to every other field you output.
+
+F. EVIDENCE-BASED DAY COUNTS. For every milestone, include a "source" string quoting where the number came from, e.g. "3L(3): 17 (or 7) -> 7" or "3L(1): default 17, override blank empty". If you cannot cite the exact field, re-read the document before answering.
+
+JSON structure (day counts shown as N are PLACEHOLDERS — extract the real value for every row; never copy this template):
 {
   "property_address": "full street address, city, state zip",
   "acceptance_date": "YYYY-MM-DD",
-  "purchase_price": "$xxx,xxx",
+  "purchase_price": "$X,XXX,XXX",
   "financing_type": "Conventional / FHA / VA / Cash / etc.",
   "buyers": "full buyer names including trust info if applicable",
   "sellers": "full seller names including trust info if applicable",
-  "listing_agent": "full name",
-  "buyers_agent": "full name",
-  "escrow_company": "name",
-  "escrow_officer": "name",
-  "escrow_number": "number",
-  "lender": "name or null",
-  "loan_officer": "name or null",
-  "hoa_name": "name or null",
-  "hoa_dues": "$xxx/month or null",
-  "hoa_phone": "number or null",
+  "listing_agent": "full name(s) per RPA 2B + counters",
+  "buyers_agent": "full name per RPA 2B",
+  "escrow_company": null,
+  "escrow_officer": null,
+  "escrow_number": null,
+  "lender": null,
+  "loan_officer": null,
+  "hoa_name": null,
+  "hoa_dues": null,
+  "hoa_phone": null,
+  "grid_transcript": [
+    "3A Purchase Price: $X,XXX,XXX",
+    "3B COE: [x] N Days after Acceptance / [ ] date",
+    "3D(1) Initial Deposit: $XX,XXX (N%), N business days, wire",
+    "3G(3) Seller Payment to Buyer's Broker: [x] N.NNN% of final price; flat $: blank",
+    "3L(1) Loan: default 17, override blank: empty/filled->N; 'No loan contingency' box: unchecked/CHECKED",
+    "3L(2) Appraisal: default 17, override: ...; 'No appraisal contingency' box: unchecked/CHECKED",
+    "3L(3) Investigation: default 17, override: ...",
+    "... EVERY remaining row of the grid (all L rows, M possession, N documents, H verifications, J, K, Q allocations of note, R other terms) ..."
+  ],
   "milestones": [
-    { "label": "Initial Deposit Due", "method": "business", "days": 3 },
-    { "label": "Seller Delivery of Disclosures", "method": "calendar", "days": 7 },
-    { "label": "Loan Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Appraisal Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Buyer Investigation Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Insurance Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Review of Disclosures Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Review of Prelim Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Review of HOA Documents Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Review of any Leased/Liened Items Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Sale of Buyer's Property (COP) Contingency Removal", "method": "calendar", "days": 17, "isContingency": true },
-    { "label": "Final Verification of Condition", "method": "before_coe", "days": 5 },
-    { "label": "Close of Escrow", "method": "calendar", "days": 30, "isCOE": true }
+    { "label": "Initial Deposit Due", "method": "business", "days": N, "source": "3D(1)..." },
+    { "label": "Seller Delivery of Disclosures", "method": "calendar", "days": N, "source": "3N(1)..." },
+    { "label": "Loan Contingency Removal", "method": "calendar", "days": N, "isContingency": true, "source": "3L(1)..." },
+    { "label": "Buyer Investigation Contingency Removal", "method": "calendar", "days": N, "isContingency": true, "source": "..." },
+    { "label": "...one entry per contingency that actually exists...", "method": "calendar", "days": N, "isContingency": true, "source": "..." },
+    { "label": "Final Verification of Condition", "method": "before_coe", "days": N, "source": "3J" },
+    { "label": "Close of Escrow", "method": "calendar", "days": N, "isCOE": true, "source": "3B" }
   ],
+  "waived_contingencies": [ "Appraisal Contingency — WAIVED ('No appraisal contingency' box checked in 3L(2))" ],
+  "counter_terms": [ "SCO #1: ..." ],
   "seller_obligations": [
-    "Seller Credit: $xx,xxx toward buyer closing costs",
-    "Home Warranty: Seller to pay [plan details] NTE $x,xxx",
-    "Termite: Seller to pay for inspection report",
-    "Buyer Broker Compensation: x%"
+    "Buyer Broker Compensation: X% of final purchase price ($XX,XXX) per 3G(3)",
+    "every other seller-paid/seller-provided item — credits, home warranty w/ plan + NTE, termite, reports, with scope"
   ],
-  "deposit": "$xx,xxx due within 3 business days of acceptance",
+  "deposit": "$XX,XXX due within N business days of acceptance",
   "possession": { "method": "at_coe", "days": 0, "fixedDate": null, "note": null }
 }
 
 Milestone rules:
-- "business" method ONLY for initial deposit. All other deadlines use "calendar" days per C.A.R. RPA.
-- Section L contingencies (L1–L9) — all require "isContingency": true. Map to these labels: Loan (L1), Appraisal (L2), Buyer Investigation (L3), Insurance (L8), Review of Disclosures = Review of Seller Documents (L4), Review of Prelim = Title/preliminary report (L5), Review of HOA Documents = Common Interest Disclosure/CID (L6), Review of any Leased/Liened Items (L9), Sale of Buyer's Property (COP) (L7). Output them in this exact order.
-- Section N1 is Seller Delivery of Disclosures — NOT a contingency (no isContingency flag), but always include it.
-- Include every contingency that exists in the contract. Omit Loan and Appraisal for cash transactions. Omit Review of HOA Documents (L6) if not a common interest development / no HOA. Omit Sale of Buyer's Property/COP (L7) if there is no COP/SBCA addendum. Omit Review of any Leased/Liened Items (L9) if not applicable per contract. When in doubt, include it.
-- Use actual day counts from the final agreed contract — do not assume defaults if the contract specifies otherwise. Default is 17 calendar days for all Section L contingencies if not otherwise stated.
-- possession: extract from the RPA Possession paragraph. Default is method "at_coe" (possession transfers at Close of Escrow) unless the contract states otherwise. Use "after_coe" with "days" if possession is X days after COE; "fixed" with "fixedDate" (YYYY-MM-DD) for a specific calendar date; "other" with a "note" for rent-back / seller-in-possession / SIP arrangements. Put any time-of-day or special term in "note".
+- "business" method ONLY for the initial deposit. All other deadlines use "calendar" days per the RPA.
+- Match paragraph 3L contingency rows by their TITLES (Loan; Appraisal; Investigation of Property; Insurance; Review of Seller Documents; Preliminary "Title" Report; Common Interest/HOA Disclosures; Review of leased or liened items; Sale of Buyer's Property) — NOT by L-numbers, which shift between form revisions. Output existing contingencies in contract order, each with "isContingency": true.
+- Seller Delivery of Disclosures (3N(1)) is NOT a contingency, but always include it.
+- Rows reading "X Days after Acceptance, or 5 Days after Delivery, whichever is later": use X for "days" and note the alternative in "source".
+- COMPLETENESS IS MANDATORY: EVERY row of the 3L contingency grid (Loan; Appraisal; Investigation of Property; Insurance; Review of Seller Documents; Preliminary "Title" Report; Common Interest/HOA Disclosures; Review of leased or liened items; Sale of Buyer's Property) must appear in EXACTLY ONE of two places: "milestones" (if the contingency is active, with its actual day count) or "waived_contingencies" (if waived by checkbox or genuinely N/A, with the reason — e.g. "Loan Contingency — N/A (all-cash purchase)", "Sale of Buyer's Property — N/A (COP box not checked)"). NEVER silently drop a row, NEVER put an "(N/A)" label inside milestones. Before finalizing, count the 3L rows in the contract and confirm every one is accounted for.
+- Sale of Buyer's Property is an active contingency ONLY if the COP box in 3L is checked / C.A.R. Form COP attached.
+- NEVER output a milestone with "days": 0 or for a right removed/zeroed by a counter (e.g., Assignment Request reduced to 0) — report those in "counter_terms" only. Milestones are actionable deadlines, not a transcript of every grid row.
+- Paragraph 3H verification items (all-cash funds, down payment & closing costs, loan application) are "Attached to the offer OR N Days after Acceptance" — they are NEVER "prior to COE". Include one as a milestone only if it was NOT attached/satisfied with the offer, using method "calendar" with its days after Acceptance.
+- possession: from RPA paragraph 3M. Default "at_coe"; "after_coe" with "days" if X days after COE; "fixed" with "fixedDate" (YYYY-MM-DD); "other" with "note" for SIP / rent-back / RLAS. Put time-of-day or special terms in "note".
 - isCOE: true only on Close of Escrow.
-- DO NOT roll dates — the application handles all weekend/holiday rolling.
-- seller_obligations: list every seller-paid or seller-provided item. Be specific — include plan names, NTE amounts, and scope.
-- deposit: exact dollar amount and timing from the final agreed terms.
+- DO NOT roll dates — the application handles weekend/holiday adjustments.
+- Use JSON null (not the string "null", not "N/A") for anything the documents do not state — escrow, lender, and HOA details are usually assigned after acceptance and belong as null unless actually present.
 
 Output raw JSON only.`;
 
-  const contentBlocks = [];
-  docs.forEach((doc, i) => {
-    contentBlocks.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}"` });
-    contentBlocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
-  });
-  contentBlocks.push({ type: 'text', text: 'Read all documents in order, resolve final agreed terms, and return the JSON object.' });
+  const verifySystem = `You are a meticulous California TC auditing a colleague's extraction of a C.A.R. contract chain. You will receive the source documents (each as a full PDF plus HIGH-RESOLUTION quadrant tiles — the tiles are authoritative for small print, override blanks, and checkboxes) followed by a DRAFT JSON extraction. Re-verify EVERY field against the tiles, with special attention to the known failure modes:
+0. Day counts or checkbox states that contradict the high-res tiles or the draft's own grid_transcript — re-read the tiles row by row and correct both the transcript and the derived values.
+1. Pre-printed "17 (or ___)" defaults where the override blank IS filled — the blank wins. If the draft shows several contingencies sharing one identical day count, treat that as suspicious and re-check each row's override blank in the tiles.
+2. Contingencies reported that were actually waived by checkbox ("No loan contingency", "No appraisal contingency") — move to waived_contingencies.
+3. Buyer Broker Compensation taken from the wrong field — it must come from 3G(3)/18A only, never the deposit percentage in 3D(1).
+4. Listing/buyer's agent names taken from footers or confused with a party — must match RPA 2B + counters.
+5. Acceptance date not equal to the last signature on the final document in the chain.
+6. Counter offer changes missing from counter_terms or not applied to the other fields.
+7. MISSING CONTINGENCIES — count every row of the contract's 3L grid (Loan, Appraisal, Investigation, Insurance, Review of Seller Documents, Prelim/Title, HOA/CID, Leased/Liened Items, Sale of Buyer's Property). Every single row must appear either in "milestones" (active, with actual day count) or in "waived_contingencies" (with reason). If any row is absent from both lists, add it to the correct one.
+8. Milestones with "days": 0 or for rights zeroed out by a counter — remove them (they belong in counter_terms).
+Return ONLY the corrected raw JSON in the exact same schema (no markdown, no commentary). If a field is already correct, keep it unchanged.`;
 
-  try {
+  const locateSystem = `You locate key pages in California C.A.R. real estate document packages. For EACH document provided, return the 1-based page numbers (within that document's own PDF) of pages containing any of: (a) the RPA "TERMS OF PURCHASE AND ALLOCATION OF COSTS" paragraph 3 grid (usually 3 consecutive pages — price/COE/deposit/loan, then contingencies/possession/documents, then items included/allocation of costs), (b) the Property/Other Addenda checkbox page, (c) any page with party signatures or acceptance dates (including DocuSign-stamped signature pages). Note: packages often begin with cover forms like the AD disclosure — do NOT include those. For short documents (counters, addenda), just list every page up to 4. Max 7 pages per document. Return ONLY raw JSON: {"docs":[{"index":1,"tile_pages":[3,4,5,19]},{"index":2,"tile_pages":[1,2]}]}`;
+
+  const makePdfBlocks = () => {
+    const blocks = [];
+    docs.forEach((doc, i) => {
+      blocks.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}"` });
+      blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
+    });
+    return blocks;
+  };
+
+  const buildDocBlocksWithTiles = async (pageMap) => {
+    const blocks = [];
+    let imgCount = 0;
+    for (let i = 0; i < docs.length; i++) {
+      const doc = docs[i];
+      blocks.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". Full PDF follows, then HIGH-RESOLUTION ZOOM TILES of its key pages. The tiles are the authoritative source for small print, override blanks, checkbox states, and percentages — always read those values from the tiles.` });
+      blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
+      try {
+        const pages = (pageMap && pageMap[i] && pageMap[i].length) ? pageMap[i] : fallbackTilePages(doc.type);
+        const tiles = await renderTilesForDoc(doc.base64, pages);
+        for (const t of tiles) {
+          if (imgCount >= 80) break;   // stay under API image limits
+          blocks.push({ type: 'text', text: `${docTypeLabel(doc)} — ${t.label}` });
+          blocks.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: t.data } });
+          imgCount++;
+        }
+      } catch(e) { console.warn('Tile rendering failed for', doc.name, e); }
+    }
+    return blocks;
+  };
+
+  const callClaude = async (sysPrompt, blocks, maxTokens) => {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -765,18 +893,47 @@ Output raw JSON only.`;
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-5',
-        max_tokens: 1500,
-        system,
-        messages: [{ role: 'user', content: contentBlocks }]
+        max_tokens: maxTokens || 6000,
+        system: sysPrompt,
+        messages: [{ role: 'user', content: blocks }]
       })
     });
-
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || `API error ${response.status}`);
-
     const rawText = data.content?.find(b => b.type === 'text')?.text || '';
-    const clean = rawText.replace(/```json|```/g,'').trim();
-    const tx = JSON.parse(clean);
+    return JSON.parse(rawText.replace(/```json|```/g,'').trim());
+  };
+
+  try {
+    // Pass 0: locate the key pages (grid, addenda, signatures) in each PDF
+    status.textContent = 'Locating key contract pages...';
+    let pageMap = {};
+    try {
+      const locBlocks = makePdfBlocks();
+      locBlocks.push({ type: 'text', text: 'Identify the key pages for each document and return the JSON.' });
+      const loc = await callClaude(locateSystem, locBlocks, 800);
+      (loc.docs || []).forEach(d => {
+        if (d.index >= 1 && Array.isArray(d.tile_pages)) pageMap[d.index - 1] = d.tile_pages.slice(0, 7);
+      });
+    } catch(lErr) { console.warn('Page-locate pass failed, using fallback pages:', lErr); }
+
+    // Render zoomed tiles once, reuse for both passes
+    status.textContent = 'Rendering high-resolution views of contract pages...';
+    const baseBlocks = await buildDocBlocksWithTiles(pageMap);
+
+    // Pass 1: extraction
+    status.textContent = 'Reading contract chain and resolving final terms...';
+    const extractBlocks = [...baseBlocks, { type: 'text', text: 'Transcribe the paragraph 3 grid from the high-res tiles first (grid_transcript), then resolve final agreed terms across the chain and return the JSON object.' }];
+    let tx = await callClaude(system, extractBlocks);
+
+    // Pass 2: adversarial verification against the source docs
+    status.textContent = 'Verifying extraction against source documents...';
+    try {
+      const verifyBlocks = [...baseBlocks, { type: 'text', text: 'DRAFT JSON EXTRACTION TO AUDIT:\n' + JSON.stringify(tx, null, 2) + '\n\nVerify every field against the documents and high-res tiles above and return the corrected JSON.' }];
+      tx = await callClaude(verifySystem, verifyBlocks);
+    } catch(vErr) {
+      console.warn('Verification pass failed, using first-pass extraction:', vErr);
+    }
 
     // Strip any markdown bold (**text**) the AI may have returned in string fields
     function stripMd(v) {
@@ -789,7 +946,10 @@ Output raw JSON only.`;
 
     // JS handles all date rolling — never trust AI for this
     const depositAmt = (tx.deposit || '').match(/\$[\d,]+(?:\.\d{2})?/)?.[0] || '';
-    const timeline = buildTimeline(tx.acceptance_date, tx.milestones, depositAmt, tx.possession);
+    const timeline = buildTimeline(tx.acceptance_date, tx.milestones, depositAmt, tx.possession, tx.waived_contingencies);
+
+    // Never print null/undefined at an agent — render as TBD
+    const show = v => (v===null || v===undefined || String(v).trim()==='' || String(v).toLowerCase()==='null') ? 'TBD' : v;
 
     // Get COE display date
     const coeM = tx.milestones.find(m=>m.isCOE);
@@ -798,8 +958,10 @@ Output raw JSON only.`;
 
       // Build HTML email for Outlook compatibility
     const soLines = (tx.seller_obligations||[]).map(h=>`<div style="margin:3px 0 3px 12px;">&bull;&nbsp;${h}</div>`).join('');
-    const lenderLine = tx.lender ? `<div><b>Lender:</b> ${tx.lender}${tx.loan_officer ? ' &middot; Loan Officer: '+tx.loan_officer : ''}</div>` : '';
-    const hoaLine = tx.hoa_name ? `<div><b>HOA:</b> ${tx.hoa_name}${tx.hoa_dues?' &mdash; '+tx.hoa_dues:''}${tx.hoa_phone?' &middot; '+tx.hoa_phone:''}</div>` : '';
+    const ctLines = (tx.counter_terms||[]).map(h=>`<div style="margin:3px 0 3px 12px;">&bull;&nbsp;${h}</div>`).join('');
+    const ctSection = ctLines ? `<p style="margin:0 0 10px;"><b>COUNTER OFFER / ADDENDUM TERMS</b></p>${ctLines}<div style="border-top:1px solid #cccccc;margin:16px 0;"></div>` : '';
+    const lenderLine = (tx.lender && show(tx.lender)!=='TBD') ? `<div><b>Lender:</b> ${tx.lender}${(tx.loan_officer && show(tx.loan_officer)!=='TBD') ? ' &middot; Loan Officer: '+tx.loan_officer : ''}</div>` : '';
+    const hoaLine = (tx.hoa_name && show(tx.hoa_name)!=='TBD') ? `<div><b>HOA:</b> ${tx.hoa_name}${tx.hoa_dues?' &mdash; '+tx.hoa_dues:''}${tx.hoa_phone?' &middot; '+tx.hoa_phone:''}</div>` : '';
 
     // timeline already outputs HTML from buildTimeline
     const timelineHtml = timeline;
@@ -824,12 +986,12 @@ ${divider}
 <div style="margin:0 0 6px;"><b>Sellers:</b> ${tx.sellers}</div>
 <div style="margin:8px 0 2px;"><b>Listing Agent:</b> ${tx.listing_agent}</div>
 <div style="margin:0 0 2px;"><b>Buyer's Agent:</b> ${tx.buyers_agent}</div>
-<div style="margin:8px 0 2px;"><b>Escrow:</b> ${tx.escrow_company}</div>
-<div style="margin:0 0 2px;"><b>Escrow Officer:</b> ${tx.escrow_officer}</div>
-<div style="margin:0 0 8px;"><b>Escrow Number:</b> #${tx.escrow_number}</div>
+<div style="margin:8px 0 2px;"><b>Escrow:</b> ${show(tx.escrow_company)}</div>
+<div style="margin:0 0 2px;"><b>Escrow Officer:</b> ${show(tx.escrow_officer)}</div>
+<div style="margin:0 0 8px;"><b>Escrow Number:</b> ${show(tx.escrow_number)==='TBD'?'TBD':'#'+tx.escrow_number}</div>
 ${lenderLine}${hoaLine}
 ${divider}
-<p style="margin:0 0 10px;"><b>CONTRACT HIGHLIGHTS &amp; SELLER OBLIGATIONS</b></p>
+${ctSection}<p style="margin:0 0 10px;"><b>CONTRACT HIGHLIGHTS &amp; SELLER OBLIGATIONS</b></p>
 ${soLines}
 ${divider}
 <p style="margin:0 0 12px;"><b>Please confirm that the dates and terms above align with your records. I will follow up with reminders 1&ndash;2 business days prior to each contingency removal deadline.</b></p>
