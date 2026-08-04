@@ -548,8 +548,11 @@ async function tilePage(pdf, num){
       const y=Math.max(0, Math.min(Math.round(r*h/TILE_ROWS), h-th));
       const c2=document.createElement('canvas');
       c2.width=tw; c2.height=th;
-      c2.getContext('2d').drawImage(canvas,x,y,tw,th,0,0,tw,th);
-      tiles.push({label:`page ${num}, section row ${r+1} of ${TILE_ROWS}, ${c===0?'left':'right'} half (high-res zoom)`, data:c2.toDataURL('image/png').split(',')[1]});
+      const ctx2=c2.getContext('2d');
+      ctx2.fillStyle='#ffffff'; ctx2.fillRect(0,0,tw,th);   // JPEG has no alpha — force white bg
+      ctx2.drawImage(canvas,x,y,tw,th,0,0,tw,th);
+      // JPEG at 0.85 is ~4x smaller than PNG for document pages — big upload-time win
+      tiles.push({label:`page ${num}, section row ${r+1} of ${TILE_ROWS}, ${c===0?'left':'right'} half (high-res zoom)`, data:c2.toDataURL('image/jpeg',0.7).split(',')[1]});
     }
   }
   return tiles;
@@ -633,6 +636,19 @@ function addBizDays(ymdStr,n){
 
 function fmtDate(ymdStr){
   return new Date(ymdStr+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+}
+
+// Robust JSON extraction — the model occasionally prefaces JSON with prose
+// ("I'll analyze...") or returns a refusal; JSON.parse alone dies on those.
+function extractJson(rawText){
+  if(!rawText || !rawText.trim()) throw new Error('The AI returned an empty response — please try again.');
+  const t = rawText.replace(/```json|```/g,'').trim();
+  try { return JSON.parse(t); } catch(e){}
+  const start = t.indexOf('{'), end = t.lastIndexOf('}');
+  if(start !== -1 && end > start){
+    try { return JSON.parse(t.slice(start, end+1)); } catch(e){}
+  }
+  throw new Error('Could not parse the AI response as JSON. The AI said: "' + t.slice(0, 300) + (t.length > 300 ? '..."' : '"'));
 }
 
 function buildTimeline(acceptanceYMD, milestones, depositAmount, possession, waived){
@@ -743,7 +759,15 @@ generateBtn.addEventListener('click', async () => {
   generateBtn.disabled = true;
   outputSection.style.display = 'none';
   errorMsg.textContent = '';
-  status.textContent = 'Reading contract chain and resolving final terms...';
+
+  // Live status with elapsed time per pass, so long runs don't look frozen
+  let passLabel = '', passStart = 0;
+  const setPass = (label) => { passLabel = label; passStart = Date.now(); status.textContent = label; };
+  const statusTick = setInterval(() => {
+    if (passLabel) status.textContent = `${passLabel} ${Math.round((Date.now()-passStart)/1000)}s`;
+  }, 1000);
+  const stopStatus = () => { clearInterval(statusTick); passLabel = ''; };
+  setPass('Preparing documents...');
 
   const docTypeLabel = d => DOC_TYPES.find(t=>t.value===d.type)?.label || d.type;
 
@@ -838,7 +862,7 @@ Milestone rules:
 
 Output raw JSON only.`;
 
-  const verifySystem = `You are a meticulous California TC auditing a colleague's extraction of a C.A.R. contract chain. You will receive the source documents (each as a full PDF plus HIGH-RESOLUTION quadrant tiles — the tiles are authoritative for small print, override blanks, and checkboxes) followed by a DRAFT JSON extraction. Re-verify EVERY field against the tiles, with special attention to the known failure modes:
+  const verifySystem = `You are a meticulous California TC auditing a colleague's extraction of a C.A.R. contract chain. You will receive HIGH-RESOLUTION zoom tiles of each document's key pages (terms grid, addenda, signature pages — authoritative for small print, override blanks, and checkboxes) followed by a DRAFT JSON extraction. Re-verify EVERY field against the tiles, with special attention to the known failure modes:
 0. Day counts or checkbox states that contradict the high-res tiles or the draft's own grid_transcript — re-read the tiles row by row and correct both the transcript and the derived values.
 1. Pre-printed "17 (or ___)" defaults where the override blank IS filled — the blank wins. If the draft shows several contingencies sharing one identical day count, treat that as suspicious and re-check each row's override blank in the tiles.
 2. Contingencies reported that were actually waived by checkbox ("No loan contingency", "No appraisal contingency") — move to waived_contingencies.
@@ -861,28 +885,33 @@ Return ONLY the corrected raw JSON in the exact same schema (no markdown, no com
     return blocks;
   };
 
+  // Returns {full, tilesOnly}: `full` = PDFs + tiles (extraction pass);
+  // `tilesOnly` = just the zoom tiles (verify pass — no need to re-upload the PDFs).
   const buildDocBlocksWithTiles = async (pageMap) => {
-    const blocks = [];
+    const full = [], tilesOnly = [];
     let imgCount = 0;
     for (let i = 0; i < docs.length; i++) {
       const doc = docs[i];
-      blocks.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". Full PDF follows, then HIGH-RESOLUTION ZOOM TILES of its key pages. The tiles are the authoritative source for small print, override blanks, checkbox states, and percentages — always read those values from the tiles.` });
-      blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
+      full.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". Full PDF follows, then HIGH-RESOLUTION ZOOM TILES of its key pages. The tiles are the authoritative source for small print, override blanks, checkbox states, and percentages — always read those values from the tiles.` });
+      full.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
+      tilesOnly.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". High-resolution zoom tiles of its key pages follow.` });
       try {
         const pages = (pageMap && pageMap[i] && pageMap[i].length) ? pageMap[i] : fallbackTilePages(doc.type);
         const tiles = await renderTilesForDoc(doc.base64, pages);
         for (const t of tiles) {
-          if (imgCount >= 80) break;   // stay under API image limits
-          blocks.push({ type: 'text', text: `${docTypeLabel(doc)} — ${t.label}` });
-          blocks.push({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: t.data } });
+          if (imgCount >= 40) break;   // stay under API image limits (tiles appear in two lists)
+          const labelBlock = { type: 'text', text: `${docTypeLabel(doc)} — ${t.label}` };
+          const imgBlock = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: t.data } };
+          full.push(labelBlock, imgBlock);
+          tilesOnly.push(labelBlock, imgBlock);
           imgCount++;
         }
       } catch(e) { console.warn('Tile rendering failed for', doc.name, e); }
     }
-    return blocks;
+    return { full, tilesOnly };
   };
 
-  const callClaude = async (sysPrompt, blocks, maxTokens) => {
+  const callClaude = async (sysPrompt, blocks, maxTokens, model) => {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -892,7 +921,7 @@ Return ONLY the corrected raw JSON in the exact same schema (no markdown, no com
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
+        model: model || 'claude-sonnet-4-5',
         max_tokens: maxTokens || 6000,
         system: sysPrompt,
         messages: [{ role: 'user', content: blocks }]
@@ -901,35 +930,37 @@ Return ONLY the corrected raw JSON in the exact same schema (no markdown, no com
     const data = await response.json();
     if (!response.ok) throw new Error(data.error?.message || `API error ${response.status}`);
     const rawText = data.content?.find(b => b.type === 'text')?.text || '';
-    return JSON.parse(rawText.replace(/```json|```/g,'').trim());
+    if (data.stop_reason === 'max_tokens') throw new Error('The AI response was cut off (max_tokens) — try again, or run fewer documents at once.');
+    return extractJson(rawText);
   };
 
   try {
-    // Pass 0: locate the key pages (grid, addenda, signatures) in each PDF
-    status.textContent = 'Locating key contract pages...';
+    // Pass 0: locate the key pages (grid, addenda, signatures) in each PDF.
+    // Easy visual task — Haiku is faster and cheaper than Sonnet here.
+    setPass('Pass 1 of 3 — locating key contract pages...');
     let pageMap = {};
     try {
       const locBlocks = makePdfBlocks();
       locBlocks.push({ type: 'text', text: 'Identify the key pages for each document and return the JSON.' });
-      const loc = await callClaude(locateSystem, locBlocks, 800);
+      const loc = await callClaude(locateSystem, locBlocks, 800, 'claude-haiku-4-5');
       (loc.docs || []).forEach(d => {
         if (d.index >= 1 && Array.isArray(d.tile_pages)) pageMap[d.index - 1] = d.tile_pages.slice(0, 7);
       });
     } catch(lErr) { console.warn('Page-locate pass failed, using fallback pages:', lErr); }
 
     // Render zoomed tiles once, reuse for both passes
-    status.textContent = 'Rendering high-resolution views of contract pages...';
-    const baseBlocks = await buildDocBlocksWithTiles(pageMap);
+    setPass('Rendering high-resolution views of contract pages...');
+    const { full: baseBlocks, tilesOnly: tileBlocks } = await buildDocBlocksWithTiles(pageMap);
 
-    // Pass 1: extraction
-    status.textContent = 'Reading contract chain and resolving final terms...';
+    // Pass 1: extraction (PDFs + tiles)
+    setPass('Pass 2 of 3 — reading contract chain and resolving final terms...');
     const extractBlocks = [...baseBlocks, { type: 'text', text: 'Transcribe the paragraph 3 grid from the high-res tiles first (grid_transcript), then resolve final agreed terms across the chain and return the JSON object.' }];
     let tx = await callClaude(system, extractBlocks);
 
-    // Pass 2: adversarial verification against the source docs
-    status.textContent = 'Verifying extraction against source documents...';
+    // Pass 2: adversarial verification (tiles only — no need to re-upload the PDFs)
+    setPass('Pass 3 of 3 — verifying extraction against source documents...');
     try {
-      const verifyBlocks = [...baseBlocks, { type: 'text', text: 'DRAFT JSON EXTRACTION TO AUDIT:\n' + JSON.stringify(tx, null, 2) + '\n\nVerify every field against the documents and high-res tiles above and return the corrected JSON.' }];
+      const verifyBlocks = [...tileBlocks, { type: 'text', text: 'DRAFT JSON EXTRACTION TO AUDIT:\n' + JSON.stringify(tx, null, 2) + '\n\nVerify every field against the high-res tiles above and return the corrected JSON.' }];
       tx = await callClaude(verifySystem, verifyBlocks);
     } catch(vErr) {
       console.warn('Verification pass failed, using first-pass extraction:', vErr);
@@ -1006,11 +1037,13 @@ ${divider}
     emailOutput._htmlContent = emailHtml;
     emailOutput._subject = `Overview & Key Dates - ${tx.property_address}`;
     outputSection.style.display = 'block';
+    stopStatus();
     status.textContent = '';
     generateBtn.disabled = false;
     outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch(err) {
     errorMsg.textContent = 'Error: ' + err.message;
+    stopStatus();
     status.textContent = '';
     generateBtn.disabled = false;
   }
