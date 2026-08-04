@@ -334,7 +334,7 @@
 
 <div class="topbar">
   <span class="topbar-title">TC Email Generator</span>
-  <span class="topbar-sub">C.A.R. Forms · California RE</span>
+  <span class="topbar-sub">C.A.R. Forms · California RE · v5.1</span>
 </div>
 
 <div class="container">
@@ -855,6 +855,8 @@ Milestone rules:
 - Sale of Buyer's Property is an active contingency ONLY if the COP box in 3L is checked / C.A.R. Form COP attached.
 - NEVER output a milestone with "days": 0 or for a right removed/zeroed by a counter (e.g., Assignment Request reduced to 0) — report those in "counter_terms" only. Milestones are actionable deadlines, not a transcript of every grid row.
 - Paragraph 3H verification items (all-cash funds, down payment & closing costs, loan application) are "Attached to the offer OR N Days after Acceptance" — they are NEVER "prior to COE". Include one as a milestone only if it was NOT attached/satisfied with the offer, using method "calendar" with its days after Acceptance.
+- MILESTONE ALLOWLIST — "milestones" may contain ONLY: Initial Deposit Due; Seller Delivery of Disclosures (3N(1)); active 3L contingency removals; unsatisfied 3H verification items; Final Verification of Condition; Close of Escrow. NOTHING ELSE. Do not add other grid rows (3N(2)-(5) escrow instructions / HOA fee payment / smoke alarms / evidence of authority, 3J other than final verification, 3K, 3Q allocations) as milestones — agents don't track those in the timeline.
+- seller_obligations: ONLY seller-paid or seller-provided items (credits, home warranty, termite, reports, NHD, Buyer Broker Compensation per 3G(3)). No buyer obligations, no timeline items restated, no generic commentary.
 - possession: from RPA paragraph 3M. Default "at_coe"; "after_coe" with "days" if X days after COE; "fixed" with "fixedDate" (YYYY-MM-DD); "other" with "note" for SIP / rent-back / RLAS. Put time-of-day or special terms in "note".
 - isCOE: true only on Close of Escrow.
 - DO NOT roll dates — the application handles weekend/holiday adjustments.
@@ -862,7 +864,9 @@ Milestone rules:
 
 Output raw JSON only.`;
 
-  const verifySystem = `You are a meticulous California TC auditing a colleague's extraction of a C.A.R. contract chain. You will receive HIGH-RESOLUTION zoom tiles of each document's key pages (terms grid, addenda, signature pages — authoritative for small print, override blanks, and checkboxes) followed by a DRAFT JSON extraction. Re-verify EVERY field against the tiles, with special attention to the known failure modes:
+  const verifySystem = `You are a meticulous California TC auditing a colleague's extraction of a C.A.R. contract chain. You will receive the source documents (each as a full PDF plus HIGH-RESOLUTION zoom tiles — the tiles are authoritative for small print, override blanks, and checkboxes) followed by a DRAFT JSON extraction.
+
+YOU ARE AUDITING, NOT RE-AUTHORING. Change a field ONLY when you can point to specific evidence in the documents proving it wrong. Fields that are correct must be returned byte-for-byte identical — do not reword, reorder, reformat, or embellish them. Do not add or remove milestones, waived_contingencies, counter_terms, or seller_obligations entries unless the documents prove an entry is false or a required entry is missing. When uncertain, keep the draft's value. A perfect audit of a correct draft returns the draft unchanged. Re-verify EVERY field against the tiles, with special attention to the known failure modes:
 0. Day counts or checkbox states that contradict the high-res tiles or the draft's own grid_transcript — re-read the tiles row by row and correct both the transcript and the derived values.
 1. Pre-printed "17 (or ___)" defaults where the override blank IS filled — the blank wins. If the draft shows several contingencies sharing one identical day count, treat that as suspicious and re-check each row's override blank in the tiles.
 2. Contingencies reported that were actually waived by checkbox ("No loan contingency", "No appraisal contingency") — move to waived_contingencies.
@@ -870,7 +874,7 @@ Output raw JSON only.`;
 4. Listing/buyer's agent names taken from footers or confused with a party — must match RPA 2B + counters.
 5. Acceptance date not equal to the last signature on the final document in the chain.
 6. Counter offer changes missing from counter_terms or not applied to the other fields.
-7. MISSING CONTINGENCIES — count every row of the contract's 3L grid (Loan, Appraisal, Investigation, Insurance, Review of Seller Documents, Prelim/Title, HOA/CID, Leased/Liened Items, Sale of Buyer's Property). Every single row must appear either in "milestones" (active, with actual day count) or in "waived_contingencies" (with reason). If any row is absent from both lists, add it to the correct one.
+7. MISSING CONTINGENCIES — count every row of the contract's 3L grid (Loan, Appraisal, Investigation, Insurance, Review of Seller Documents, Prelim/Title, HOA/CID, Leased/Liened Items, Sale of Buyer's Property). Every single row must appear either in "milestones" (active, with actual day count) or in "waived_contingencies" (with reason). If any row is absent from both lists, add it to the correct one. Only move a row between the two lists if the tiles clearly show a checkbox or blank state that requires the move.
 8. Milestones with "days": 0 or for rights zeroed out by a counter — remove them (they belong in counter_terms).
 Return ONLY the corrected raw JSON in the exact same schema (no markdown, no commentary). If a field is already correct, keep it unchanged.`;
 
@@ -885,30 +889,25 @@ Return ONLY the corrected raw JSON in the exact same schema (no markdown, no com
     return blocks;
   };
 
-  // Returns {full, tilesOnly}: `full` = PDFs + tiles (extraction pass);
-  // `tilesOnly` = just the zoom tiles (verify pass — no need to re-upload the PDFs).
   const buildDocBlocksWithTiles = async (pageMap) => {
-    const full = [], tilesOnly = [];
+    const blocks = [];
     let imgCount = 0;
     for (let i = 0; i < docs.length; i++) {
       const doc = docs[i];
-      full.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". Full PDF follows, then HIGH-RESOLUTION ZOOM TILES of its key pages. The tiles are the authoritative source for small print, override blanks, checkbox states, and percentages — always read those values from the tiles.` });
-      full.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
-      tilesOnly.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". High-resolution zoom tiles of its key pages follow.` });
+      blocks.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". Full PDF follows, then HIGH-RESOLUTION ZOOM TILES of its key pages. The tiles are the authoritative source for small print, override blanks, checkbox states, and percentages — always read those values from the tiles.` });
+      blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
       try {
         const pages = (pageMap && pageMap[i] && pageMap[i].length) ? pageMap[i] : fallbackTilePages(doc.type);
         const tiles = await renderTilesForDoc(doc.base64, pages);
         for (const t of tiles) {
-          if (imgCount >= 40) break;   // stay under API image limits (tiles appear in two lists)
-          const labelBlock = { type: 'text', text: `${docTypeLabel(doc)} — ${t.label}` };
-          const imgBlock = { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: t.data } };
-          full.push(labelBlock, imgBlock);
-          tilesOnly.push(labelBlock, imgBlock);
+          if (imgCount >= 80) break;   // stay under API image limits
+          blocks.push({ type: 'text', text: `${docTypeLabel(doc)} — ${t.label}` });
+          blocks.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: t.data } });
           imgCount++;
         }
       } catch(e) { console.warn('Tile rendering failed for', doc.name, e); }
     }
-    return { full, tilesOnly };
+    return blocks;
   };
 
   const callClaude = async (sysPrompt, blocks, maxTokens, model) => {
@@ -950,17 +949,17 @@ Return ONLY the corrected raw JSON in the exact same schema (no markdown, no com
 
     // Render zoomed tiles once, reuse for both passes
     setPass('Rendering high-resolution views of contract pages...');
-    const { full: baseBlocks, tilesOnly: tileBlocks } = await buildDocBlocksWithTiles(pageMap);
+    const baseBlocks = await buildDocBlocksWithTiles(pageMap);
 
     // Pass 1: extraction (PDFs + tiles)
     setPass('Pass 2 of 3 — reading contract chain and resolving final terms...');
     const extractBlocks = [...baseBlocks, { type: 'text', text: 'Transcribe the paragraph 3 grid from the high-res tiles first (grid_transcript), then resolve final agreed terms across the chain and return the JSON object.' }];
     let tx = await callClaude(system, extractBlocks);
 
-    // Pass 2: adversarial verification (tiles only — no need to re-upload the PDFs)
+    // Pass 2: adversarial verification against the full source docs + tiles
     setPass('Pass 3 of 3 — verifying extraction against source documents...');
     try {
-      const verifyBlocks = [...tileBlocks, { type: 'text', text: 'DRAFT JSON EXTRACTION TO AUDIT:\n' + JSON.stringify(tx, null, 2) + '\n\nVerify every field against the high-res tiles above and return the corrected JSON.' }];
+      const verifyBlocks = [...baseBlocks, { type: 'text', text: 'DRAFT JSON EXTRACTION TO AUDIT:\n' + JSON.stringify(tx, null, 2) + '\n\nVerify every field against the documents and high-res tiles above and return the corrected JSON. Remember: minimal changes only — keep correct fields byte-for-byte identical.' }];
       tx = await callClaude(verifySystem, verifyBlocks);
     } catch(vErr) {
       console.warn('Verification pass failed, using first-pass extraction:', vErr);
