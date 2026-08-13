@@ -346,7 +346,7 @@
 
 <div class="topbar">
   <span class="topbar-title">TC Email Generator</span>
-  <span class="topbar-sub">C.A.R. Forms · California RE · v5.2</span>
+  <span class="topbar-sub">C.A.R. Forms · California RE · v5.3</span>
 </div>
 
 <div class="container">
@@ -540,6 +540,18 @@ dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.
 // where the API would downscale it again.
 const TILE_SCALE = 3.1, TILE_OVERLAP = 0.08, TILE_COLS = 2, TILE_ROWS = 3;
 
+// The RPA's ¶3 grid is 18 dense rows of tiny override blanks — it earns a full
+// 2x3 slice at 3.1x. A counter offer is one sparse terms block on a mostly blank
+// page; slicing it the same way spends 6 tiles to photograph whitespace. Counters
+// get a top/bottom split at 2.0x instead, which still lands each half at ~1.1MP
+// (the cap above which the API downscales anyway) — same legibility per tile,
+// a third of the payload.
+function tileConfig(docType){
+  return docType === 'rpa'
+    ? { scale: TILE_SCALE, cols: TILE_COLS, rows: TILE_ROWS }
+    : { scale: 2.0,        cols: 1,         rows: 2         };
+}
+
 async function loadPdf(base64){
   const bin = atob(base64);
   const bytes = new Uint8Array(bin.length);
@@ -547,38 +559,40 @@ async function loadPdf(base64){
   return pdfjsLib.getDocument({data:bytes}).promise;
 }
 
-async function tilePage(pdf, num){
+async function tilePage(pdf, num, cfg){
+  const {scale, cols, rows} = cfg;
   const page = await pdf.getPage(num);
-  const vp = page.getViewport({scale:TILE_SCALE});
+  const vp = page.getViewport({scale});
   const canvas = document.createElement('canvas');
   canvas.width = vp.width; canvas.height = vp.height;
   await page.render({canvasContext:canvas.getContext('2d'), viewport:vp}).promise;
   const w=canvas.width, h=canvas.height;
-  const tw=Math.ceil(w*(1/TILE_COLS+TILE_OVERLAP)), th=Math.ceil(h*(1/TILE_ROWS+TILE_OVERLAP));
+  const tw=Math.min(w, Math.ceil(w*(1/cols+TILE_OVERLAP))), th=Math.min(h, Math.ceil(h*(1/rows+TILE_OVERLAP)));
   const tiles=[];
-  for(let r=0;r<TILE_ROWS;r++){
-    for(let c=0;c<TILE_COLS;c++){
-      const x=Math.max(0, Math.min(Math.round(c*w/TILE_COLS), w-tw));
-      const y=Math.max(0, Math.min(Math.round(r*h/TILE_ROWS), h-th));
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const x=Math.max(0, Math.min(Math.round(c*w/cols), w-tw));
+      const y=Math.max(0, Math.min(Math.round(r*h/rows), h-th));
       const c2=document.createElement('canvas');
       c2.width=tw; c2.height=th;
       const ctx2=c2.getContext('2d');
       ctx2.fillStyle='#ffffff'; ctx2.fillRect(0,0,tw,th);   // JPEG has no alpha — force white bg
       ctx2.drawImage(canvas,x,y,tw,th,0,0,tw,th);
-      // JPEG at 0.85 is ~4x smaller than PNG for document pages — big upload-time win
-      tiles.push({label:`page ${num}, section row ${r+1} of ${TILE_ROWS}, ${c===0?'left':'right'} half (high-res zoom)`, data:c2.toDataURL('image/jpeg',0.7).split(',')[1]});
+      const where = cols>1 ? `, ${c===0?'left':'right'} half` : '';
+      // JPEG at 0.7 is ~4x smaller than PNG for document pages — big upload-time win
+      tiles.push({label:`page ${num}, section row ${r+1} of ${rows}${where} (high-res zoom)`, data:c2.toDataURL('image/jpeg',0.7).split(',')[1]});
     }
   }
   return tiles;
 }
 
-async function renderTilesForDoc(base64, pageNums){
+async function renderTilesForDoc(base64, pageNums, cfg){
   if(!window.pdfjsLib) return [];
   const pdf = await loadPdf(base64);
   const tiles=[];
   for(const num of pageNums){
     if(num<1 || num>pdf.numPages) continue;
-    tiles.push(...await tilePage(pdf, num));
+    tiles.push(...await tilePage(pdf, num, cfg));
   }
   return tiles;
 }
@@ -594,83 +608,108 @@ function fallbackTilePages(docType){
 function docTypeLabel(d){ return DOC_TYPES.find(t=>t.value===d.type)?.label || d.type; }
 
 // ── Media budget ──────────────────────────────────────────────────────────
-// The API caps a single request at 100 media items TOTAL — PDF pages AND images
-// share that ceiling. A long counter chain (6 docs / 37 pages) plus 6 tiles per
-// key page blew straight past it and the whole run died with "Too much media".
-// So: count the pages first, spend whatever is left on tiles, and report any
-// page we couldn't zoom into so it can be checked by hand.
-const MEDIA_CEILING  = 95;                        // 5 under the hard limit, for safety
-const TILES_PER_PAGE = TILE_COLS * TILE_ROWS;     // 6
+// A single API request has TWO independent ceilings and this tool has now hit
+// both: 100 media items (PDF pages + images share that count), and 200,000
+// tokens. A 6-document chain is ~37 PDF pages, which alone is ~115k tokens
+// before a single zoom tile is added. So: measure the fixed cost of the PDFs
+// first, spend what's left on tiles, and report every page we couldn't zoom
+// into so it gets checked by hand.
+const MEDIA_CEILING   = 95;       // 5 under the hard 100, for safety
+const TOKEN_CEILING   = 185000;   // 15k under the hard 200k — the verify pass
+                                  // resends everything plus the draft JSON
+const PDF_PAGE_TOKENS = 3100;     // measured on real C.A.R. zipForm packages
+const TILE_TOKENS     = 1550;     // tiles are sized to ~1.1MP => ~1,500 each
+const OVERHEAD_TOKENS = 9000;     // system prompt + labels + draft JSON
 
 async function countPdfPages(base64){
   try { return (await loadPdf(base64)).numPages; }
-  catch(e){ return 20; }                          // unreadable → assume large, stay safe
+  catch(e){ return 20; }                          // unreadable => assume large, stay safe
 }
 
-// Decides which pages each document gets zoom tiles for, given the budget.
-// Priority: (1) every document keeps at least its single most important page,
-// (2) the RPA is topped up next — its ¶3 grid runs across consecutive pages,
-// (3) anything left round-robins across the counters latest-first, since later
-// counters supersede earlier ones and the final one carries acceptance.
+// Decides which pages each document gets zoom tiles for. Priority order:
+//   1. every document keeps at least its most important page
+//   2. the LAST document in the chain gets its signature page — acceptance is
+//      the last signature on the final doc, and that date drives every deadline
+//   3. the RPA is topped up next, since its ¶3 grid spans consecutive pages
+//   4. anything still affordable spreads across the counters, latest first
+// Cost varies by document: an RPA page is 6 tiles, a counter page is 2.
 async function planTiles(docs, pageMap){
-  const desired = docs.map((doc,i) => ({
-    i,
-    isRpa: doc.type === 'rpa',
-    label: docTypeLabel(doc),
-    pages: ((pageMap && pageMap[i] && pageMap[i].length) ? pageMap[i] : fallbackTilePages(doc.type)).slice()
-  }));
+  const desired = docs.map((doc,i) => {
+    const cfg = tileConfig(doc.type);
+    return {
+      i, cfg,
+      isRpa: doc.type === 'rpa',
+      label: docTypeLabel(doc),
+      tilesPerPage: cfg.cols * cfg.rows,
+      pages: ((pageMap && pageMap[i] && pageMap[i].length) ? pageMap[i] : fallbackTilePages(doc.type)).slice()
+    };
+  });
 
   if(!window.pdfjsLib) return { plan: desired.map(()=>[]), trimmed: [] };
 
   let pageTotal = 0;
   for(const doc of docs) pageTotal += await countPdfPages(doc.base64);
 
-  if(pageTotal >= 100) throw new Error(
-    `These ${docs.length} documents come to ${pageTotal} pages, which is over the ${100}-page limit for a single run. ` +
-    `Remove any addenda that don't change terms or dates, or run this one manually.`
+  const fixedTokens = pageTotal * PDF_PAGE_TOKENS + OVERHEAD_TOKENS;
+  if(pageTotal >= 100 || fixedTokens >= TOKEN_CEILING) throw new Error(
+    `These ${docs.length} documents come to ${pageTotal} pages, which is more than one run can hold. ` +
+    `Remove any addenda that don't change terms or dates, or run this transaction manually.`
   );
 
-  const pageBudget   = Math.floor(Math.max(0, MEDIA_CEILING - pageTotal) / TILES_PER_PAGE);
-  const totalDesired = desired.reduce((s,d)=>s+d.pages.length, 0);
+  let imgLeft = MEDIA_CEILING - pageTotal;
+  let tokLeft = TOKEN_CEILING - fixedTokens;
 
-  if(totalDesired <= pageBudget) return { plan: desired.map(d=>d.pages), trimmed: [] };
-
+  // Rank documents, then walk a priority-ordered list of (document, page) picks.
   const rank = [];
   desired.forEach(d => { if(d.isRpa) rank.push(d); });
   for(let k = desired.length - 1; k >= 0; k--) if(!desired[k].isRpa) rank.push(desired[k]);
 
-  const granted = desired.map(()=>[]);
-  let used = 0;
-
-  for(const d of rank){                                   // (1) one page each
-    if(used >= pageBudget) break;
-    if(d.pages.length){ granted[d.i].push(d.pages[0]); used++; }
-  }
-  // (2) top up the LAST document in the chain first — acceptance is the last
-  // signature on the final doc, and that date drives every deadline we print.
-  // Capped at 2 (terms page + signature page) so it can't starve the ¶3 grid.
+  const wanted = [];
+  rank.forEach(d => { if(d.pages.length) wanted.push([d, 0]); });          // (1)
   const last = desired[desired.length - 1];
-  for(let k = granted[last.i].length; k < Math.min(last.pages.length, 2) && used < pageBudget; k++){
-    granted[last.i].push(last.pages[k]); used++;
-  }
-  for(const d of rank){                                   // (3) then top up the RPA
-    if(!d.isRpa) continue;
-    for(let k=1; k<d.pages.length && used<pageBudget; k++){
-      if(granted[d.i].includes(d.pages[k])) continue;
-      granted[d.i].push(d.pages[k]); used++;
-    }
-  }
-  let idx = 1, progressed = true;                         // (3) spread the rest
-  while(used < pageBudget && progressed){
-    progressed = false;
+  if(last.pages.length > 1) wanted.push([last, 1]);                        // (2)
+  rank.forEach(d => {                                                      // (3)
+    if(!d.isRpa) return;
+    for(let k=1; k<d.pages.length; k++) wanted.push([d, k]);
+  });
+  let idx = 1, more = true;                                                // (4)
+  while(more){
+    more = false;
     for(const d of rank){
-      if(d.isRpa || used >= pageBudget) continue;
-      if(idx < d.pages.length){ granted[d.i].push(d.pages[idx]); used++; progressed = true; }
+      if(d.isRpa) continue;
+      if(idx < d.pages.length){ wanted.push([d, idx]); more = true; }
     }
     idx++;
   }
 
+  const granted = desired.map(()=>[]);
+  const taken = new Set();
+  for(const [d, k] of wanted){
+    const key = d.i + ':' + k;
+    if(taken.has(key)) continue;
+    const cost = d.tilesPerPage;
+    // `continue`, not `break` — a cheap counter page may still fit after an
+    // expensive RPA page no longer does.
+    if(cost > imgLeft || cost * TILE_TOKENS > tokLeft) continue;
+    taken.add(key);
+    granted[d.i].push(d.pages[k]);
+    imgLeft -= cost;
+    tokLeft -= cost * TILE_TOKENS;
+  }
+
   granted.forEach(g => g.sort((a,b)=>a-b));
+
+  // Non-negotiable: the RPA's ¶3 grid MUST get zoom tiles. Without them the
+  // model misreads the tiny override blanks and quietly reports every
+  // contingency as the pre-printed 17 days — a wrong email that looks right.
+  // Better to stop here than to hand over confident garbage.
+  const rpa = desired.find(d => d.isRpa);
+  if(rpa && rpa.pages.length && !granted[rpa.i].length) throw new Error(
+    `This package is ${pageTotal} pages — too large to zoom in on the RPA terms grid, and ` +
+    `without that zoom the contingency dates can't be read reliably. ` +
+    `Remove any addenda that don't change terms or dates, or run this transaction manually.`
+  );
+
   const trimmed = desired
     .filter(d => granted[d.i].length < d.pages.length)
     .map(d => d.label);
@@ -995,7 +1034,7 @@ Return ONLY the corrected raw JSON in the exact same schema (no markdown, no com
       blocks.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". Full PDF follows, then HIGH-RESOLUTION ZOOM TILES of its key pages. The tiles are the authoritative source for small print, override blanks, checkbox states, and percentages — always read those values from the tiles.` });
       blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
       try {
-        const tiles = await renderTilesForDoc(doc.base64, (plan && plan[i]) || []);
+        const tiles = await renderTilesForDoc(doc.base64, (plan && plan[i]) || [], tileConfig(doc.type));
         for (const t of tiles) {
           blocks.push({ type: 'text', text: `${docTypeLabel(doc)} — ${t.label}` });
           blocks.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: t.data } });
