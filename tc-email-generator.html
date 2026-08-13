@@ -328,13 +328,25 @@
     text-align: center;
     margin-top: 12px;
   }
+
+  .warn-banner {
+    font-size: 13px;
+    line-height: 1.55;
+    border: 1px solid #d9a441;
+    background: #fdf6e8;
+    color: #6b4a10;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin: 0 0 14px;
+  }
+  .warn-banner b { display: block; margin-bottom: 4px; }
 </style>
 </head>
 <body>
 
 <div class="topbar">
   <span class="topbar-title">TC Email Generator</span>
-  <span class="topbar-sub">C.A.R. Forms · California RE · v5.1</span>
+  <span class="topbar-sub">C.A.R. Forms · California RE · v5.2</span>
 </div>
 
 <div class="container">
@@ -369,6 +381,7 @@
     <div class="output-header">
       <span class="section-label" style="margin:0;">Generated Email</span>
     </div>
+    <div class="warn-banner" id="warnBanner" style="display:none;"></div>
     <div class="email-card" id="emailOutput"></div>
     <div class="action-row">
       <button class="btn-action primary" id="copyBtn">Copy to clipboard</button>
@@ -409,6 +422,7 @@ const status       = document.getElementById('status');
 const errorMsg     = document.getElementById('errorMsg');
 const outputSection= document.getElementById('outputSection');
 const emailOutput  = document.getElementById('emailOutput');
+const warnBanner   = document.getElementById('warnBanner');
 const copyBtn      = document.getElementById('copyBtn');
 const resetBtn     = document.getElementById('resetBtn');
 
@@ -575,6 +589,93 @@ async function renderTilesForDoc(base64, pageNums){
 // resolution; it's only the tiny fill-in values that need the zoomed tiles.
 function fallbackTilePages(docType){
   return docType==='rpa' ? [1,2,3,4,5,6,7] : [1,2,3,4];
+}
+
+function docTypeLabel(d){ return DOC_TYPES.find(t=>t.value===d.type)?.label || d.type; }
+
+// ── Media budget ──────────────────────────────────────────────────────────
+// The API caps a single request at 100 media items TOTAL — PDF pages AND images
+// share that ceiling. A long counter chain (6 docs / 37 pages) plus 6 tiles per
+// key page blew straight past it and the whole run died with "Too much media".
+// So: count the pages first, spend whatever is left on tiles, and report any
+// page we couldn't zoom into so it can be checked by hand.
+const MEDIA_CEILING  = 95;                        // 5 under the hard limit, for safety
+const TILES_PER_PAGE = TILE_COLS * TILE_ROWS;     // 6
+
+async function countPdfPages(base64){
+  try { return (await loadPdf(base64)).numPages; }
+  catch(e){ return 20; }                          // unreadable → assume large, stay safe
+}
+
+// Decides which pages each document gets zoom tiles for, given the budget.
+// Priority: (1) every document keeps at least its single most important page,
+// (2) the RPA is topped up next — its ¶3 grid runs across consecutive pages,
+// (3) anything left round-robins across the counters latest-first, since later
+// counters supersede earlier ones and the final one carries acceptance.
+async function planTiles(docs, pageMap){
+  const desired = docs.map((doc,i) => ({
+    i,
+    isRpa: doc.type === 'rpa',
+    label: docTypeLabel(doc),
+    pages: ((pageMap && pageMap[i] && pageMap[i].length) ? pageMap[i] : fallbackTilePages(doc.type)).slice()
+  }));
+
+  if(!window.pdfjsLib) return { plan: desired.map(()=>[]), trimmed: [] };
+
+  let pageTotal = 0;
+  for(const doc of docs) pageTotal += await countPdfPages(doc.base64);
+
+  if(pageTotal >= 100) throw new Error(
+    `These ${docs.length} documents come to ${pageTotal} pages, which is over the ${100}-page limit for a single run. ` +
+    `Remove any addenda that don't change terms or dates, or run this one manually.`
+  );
+
+  const pageBudget   = Math.floor(Math.max(0, MEDIA_CEILING - pageTotal) / TILES_PER_PAGE);
+  const totalDesired = desired.reduce((s,d)=>s+d.pages.length, 0);
+
+  if(totalDesired <= pageBudget) return { plan: desired.map(d=>d.pages), trimmed: [] };
+
+  const rank = [];
+  desired.forEach(d => { if(d.isRpa) rank.push(d); });
+  for(let k = desired.length - 1; k >= 0; k--) if(!desired[k].isRpa) rank.push(desired[k]);
+
+  const granted = desired.map(()=>[]);
+  let used = 0;
+
+  for(const d of rank){                                   // (1) one page each
+    if(used >= pageBudget) break;
+    if(d.pages.length){ granted[d.i].push(d.pages[0]); used++; }
+  }
+  // (2) top up the LAST document in the chain first — acceptance is the last
+  // signature on the final doc, and that date drives every deadline we print.
+  // Capped at 2 (terms page + signature page) so it can't starve the ¶3 grid.
+  const last = desired[desired.length - 1];
+  for(let k = granted[last.i].length; k < Math.min(last.pages.length, 2) && used < pageBudget; k++){
+    granted[last.i].push(last.pages[k]); used++;
+  }
+  for(const d of rank){                                   // (3) then top up the RPA
+    if(!d.isRpa) continue;
+    for(let k=1; k<d.pages.length && used<pageBudget; k++){
+      if(granted[d.i].includes(d.pages[k])) continue;
+      granted[d.i].push(d.pages[k]); used++;
+    }
+  }
+  let idx = 1, progressed = true;                         // (3) spread the rest
+  while(used < pageBudget && progressed){
+    progressed = false;
+    for(const d of rank){
+      if(d.isRpa || used >= pageBudget) continue;
+      if(idx < d.pages.length){ granted[d.i].push(d.pages[idx]); used++; progressed = true; }
+    }
+    idx++;
+  }
+
+  granted.forEach(g => g.sort((a,b)=>a-b));
+  const trimmed = desired
+    .filter(d => granted[d.i].length < d.pages.length)
+    .map(d => d.label);
+
+  return { plan: granted, trimmed };
 }
 
 // ── Holiday & business-day rolling logic ──────────────────────────────────
@@ -769,8 +870,6 @@ generateBtn.addEventListener('click', async () => {
   const stopStatus = () => { clearInterval(statusTick); passLabel = ''; };
   setPass('Preparing documents...');
 
-  const docTypeLabel = d => DOC_TYPES.find(t=>t.value===d.type)?.label || d.type;
-
   const system = `You are an expert California real estate Transaction Coordinator working with C.A.R. Forms. You extract the final agreed terms of a contract chain with zero tolerance for misread fields.
 
 You will receive one or more documents — an RPA and potentially counters or addenda, in chronological order. Each document arrives as a full PDF PLUS high-resolution quadrant tile images of its key pages. The tiles exist because the decisive values live in tiny italic override blanks and small checkboxes that are easy to misread at full-page resolution. READ ALL DAY COUNTS, CHECKBOX STATES, PERCENTAGES, AND FILLED BLANKS FROM THE TILES. Use the full PDF only for overall structure and untiled pages.
@@ -889,21 +988,17 @@ Return ONLY the corrected raw JSON in the exact same schema (no markdown, no com
     return blocks;
   };
 
-  const buildDocBlocksWithTiles = async (pageMap) => {
+  const buildDocBlocksWithTiles = async (plan) => {
     const blocks = [];
-    let imgCount = 0;
     for (let i = 0; i < docs.length; i++) {
       const doc = docs[i];
       blocks.push({ type: 'text', text: `Document ${i+1}: ${docTypeLabel(doc)} — "${doc.name}". Full PDF follows, then HIGH-RESOLUTION ZOOM TILES of its key pages. The tiles are the authoritative source for small print, override blanks, checkbox states, and percentages — always read those values from the tiles.` });
       blocks.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: doc.base64 } });
       try {
-        const pages = (pageMap && pageMap[i] && pageMap[i].length) ? pageMap[i] : fallbackTilePages(doc.type);
-        const tiles = await renderTilesForDoc(doc.base64, pages);
+        const tiles = await renderTilesForDoc(doc.base64, (plan && plan[i]) || []);
         for (const t of tiles) {
-          if (imgCount >= 80) break;   // stay under API image limits
           blocks.push({ type: 'text', text: `${docTypeLabel(doc)} — ${t.label}` });
           blocks.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: t.data } });
-          imgCount++;
         }
       } catch(e) { console.warn('Tile rendering failed for', doc.name, e); }
     }
@@ -947,9 +1042,12 @@ Return ONLY the corrected raw JSON in the exact same schema (no markdown, no com
       });
     } catch(lErr) { console.warn('Page-locate pass failed, using fallback pages:', lErr); }
 
-    // Render zoomed tiles once, reuse for both passes
+    // Fit the zoom tiles inside the API's 100-item media ceiling before rendering
     setPass('Rendering high-resolution views of contract pages...');
-    const baseBlocks = await buildDocBlocksWithTiles(pageMap);
+    const { plan: tilePlan, trimmed: tileTrimmed } = await planTiles(docs, pageMap);
+
+    // Render zoomed tiles once, reuse for both passes
+    const baseBlocks = await buildDocBlocksWithTiles(tilePlan);
 
     // Pass 1: extraction (PDFs + tiles)
     setPass('Pass 2 of 3 — reading contract chain and resolving final terms...');
@@ -1032,6 +1130,18 @@ ${divider}
     // Plain text version for display in the card
     const emailPlain = emailHtml.replace(/<b>/g,'').replace(/<\/b>/g,'').replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&bull;/g,'\u2022').replace(/&mdash;/g,'\u2014').replace(/&middot;/g,'\u00b7').replace(/&ndash;/g,'\u2013').replace(/\n{3,}/g,'\n\n').trim();
 
+    // Banner lives in the app only — never inside emailHtml, so it can't get
+    // pasted into Outlook and sent to an agent.
+    if (tileTrimmed.length) {
+      warnBanner.innerHTML = '<b>&#9888;&#65039; Check these documents by hand before sending</b>' +
+        'This chain was too large to zoom in on every page, so the close-up views were reduced on: <b style="display:inline;">' +
+        tileTrimmed.join(', ') + '</b>. Everything else was read at full detail. ' +
+        'Re-read the terms and dates on those documents against the email below.';
+      warnBanner.style.display = 'block';
+    } else {
+      warnBanner.style.display = 'none';
+    }
+
     emailOutput.innerHTML = emailHtml;
     emailOutput._htmlContent = emailHtml;
     emailOutput._subject = `Overview & Key Dates - ${tx.property_address}`;
@@ -1041,7 +1151,12 @@ ${divider}
     generateBtn.disabled = false;
     outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch(err) {
-    errorMsg.textContent = 'Error: ' + err.message;
+    let msg = err.message || String(err);
+    if (/too much media|too many (images|pages|documents)/i.test(msg)) {
+      msg = 'This document set is too large for one run, even after reducing the close-up views. ' +
+            'Remove any addenda that don\'t change terms or dates, or run this transaction manually.';
+    }
+    errorMsg.textContent = 'Error: ' + msg;
     stopStatus();
     status.textContent = '';
     generateBtn.disabled = false;
